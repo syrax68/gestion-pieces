@@ -4,14 +4,14 @@ Application complète de gestion de stock de pièces détachées pour motos, sco
 
 ## 📦 Stack technique
 
-| Couche       | Technologies                                                       |
-| ------------ | ------------------------------------------------------------------ |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts      |
-| **Backend**  | Node.js, Express, TypeScript, Prisma ORM, Zod                      |
-| **Base de données** | PostgreSQL 16 (Docker)                                       |
-| **Auth**     | JWT (jsonwebtoken) + bcryptjs                                       |
-| **Monorepo** | pnpm workspaces                                                    |
-| **Outils**   | Docker Compose, pgAdmin, tsx (dev), xlsx (exports)                  |
+| Couche              | Technologies                                                  |
+| ------------------- | ------------------------------------------------------------- |
+| **Frontend**        | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts |
+| **Backend**         | Node.js, Express, TypeScript, Prisma ORM, Zod                 |
+| **Base de données** | PostgreSQL 16 (Docker)                                        |
+| **Auth**            | JWT (jsonwebtoken) + bcryptjs                                 |
+| **Monorepo**        | pnpm workspaces                                               |
+| **Outils**          | Docker Compose, pgAdmin, tsx (dev), xlsx (exports)            |
 
 ## 🚀 Démarrage rapide
 
@@ -65,11 +65,11 @@ pnpm db:seed
 pnpm dev
 ```
 
-| Service    | URL                          |
-| ---------- | ---------------------------- |
-| Frontend   | http://localhost:5173         |
-| Backend API| http://localhost:3001         |
-| pgAdmin    | http://localhost:5050         |
+| Service     | URL                   |
+| ----------- | --------------------- |
+| Frontend    | http://localhost:5173 |
+| Backend API | http://localhost:3001 |
+| pgAdmin     | http://localhost:5050 |
 
 ## 📜 Scripts disponibles (racine)
 
@@ -181,9 +181,11 @@ gestion-pieces-moto/
 Le schéma Prisma comporte **20+ modèles** organisés par domaine :
 
 ### Utilisateurs & Sécurité
+
 - **User** — utilisateurs avec rôles (`ADMIN`, `VENDEUR`, `LECTEUR`)
 
 ### Catalogue Produits
+
 - **Piece** — pièces détachées (référence, code-barres, prix achat/vente, stock, TVA, promo…)
 - **Categorie** / **SousCategorie** — arborescence de catégories
 - **Marque** — marques constructeur
@@ -191,32 +193,38 @@ Le schéma Prisma comporte **20+ modèles** organisés par domaine :
 - **Emplacement** — emplacements de stockage (ex: `A1-B3`)
 
 ### Véhicules Compatibles
+
 - **ModeleVehicule** — modèles de véhicules (MOTO, SCOOTER, QUAD)
 - **PieceModeleVehicule** — table de liaison pièce ↔ modèle
 
 ### Stock & Entrepôt
+
 - **MouvementStock** — entrées, sorties, ajustements, retours, transferts, inventaires
 - **Inventaire** / **InventaireItem** — sessions d'inventaire physique
 
 ### Fournisseurs & Achats
+
 - **Fournisseur** — coordonnées, SIRET, TVA, conditions de paiement
 - **PieceFournisseur** — prix par fournisseur, fournisseur principal
 - **Commande** / **CommandeItem** — commandes fournisseur (brouillon → livrée)
 - **Achat** / **AchatItem** — factures d'achat
 
 ### Clients & Ventes
+
 - **Client** — particuliers et professionnels
 - **Devis** / **DevisItem** — devis avec date de validité
 - **Facture** / **FactureItem** — facturation complète (TVA, remises, paiement partiel)
 - **Avoir** / **AvoirItem** — avoirs et retours
 
 ### Historique & Analytics
+
 - **ActivityLog** — journal d'activité (création, modification, suppression…)
 - **HistoriquePrix** — historique des changements de prix
 
 ## 🎨 Fonctionnalités
 
 ### Gestion des pièces
+
 - CRUD complet des pièces avec référence, code-barres, prix, stock
 - Catégorisation par catégorie/sous-catégorie et marque
 - Compatibilité véhicule (motos, scooters, quads)
@@ -224,6 +232,7 @@ Le schéma Prisma comporte **20+ modèles** organisés par domaine :
 - Alertes de stock minimum
 
 ### Gestion commerciale
+
 - **Commandes fournisseurs** — workflow complet (brouillon → livrée)
 - **Achats** — suivi des factures d'achat
 - **Factures clients** — génération avec TVA, remises, suivi de paiement
@@ -231,15 +240,18 @@ Le schéma Prisma comporte **20+ modèles** organisés par domaine :
 - **Avoirs** — gestion des retours et remboursements
 
 ### Stock
+
 - Mouvements de stock (entrées, sorties, ajustements, retours, transferts)
 - Inventaires physiques
 - Historique complet des mouvements
 
 ### Tableau de bord
+
 - KPIs et statistiques en temps réel
 - Graphiques (Recharts)
 
 ### Administration
+
 - Authentification JWT avec 3 niveaux de rôles
 - Routes protégées (frontend) et middleware d'auth (backend)
 - Gestion des utilisateurs (admin uniquement)
