@@ -7,12 +7,26 @@ async function main() {
   console.log("Seeding database...");
 
   // ============================================
+  // BOUTIQUE PAR DÉFAUT
+  // ============================================
+  const boutique = await prisma.boutique.upsert({
+    where: { id: "default-boutique" },
+    update: {},
+    create: {
+      id: "default-boutique",
+      nom: "Ma Boutique Moto",
+      actif: true,
+    },
+  });
+  console.log("Created boutique:", boutique.nom);
+
+  // ============================================
   // UTILISATEURS
   // ============================================
   const adminPassword = await bcrypt.hash("admin123", 10);
   const admin = await prisma.user.upsert({
     where: { email: "admin@example.com" },
-    update: {},
+    update: { boutiqueId: boutique.id },
     create: {
       email: "admin@example.com",
       password: adminPassword,
@@ -20,6 +34,7 @@ async function main() {
       prenom: "System",
       role: "ADMIN",
       actif: true,
+      boutiqueId: boutique.id,
     },
   });
   console.log("Created admin user:", admin.email);
@@ -27,7 +42,7 @@ async function main() {
   const vendeurPassword = await bcrypt.hash("vendeur123", 10);
   const vendeur = await prisma.user.upsert({
     where: { email: "vendeur@example.com" },
-    update: {},
+    update: { boutiqueId: boutique.id },
     create: {
       email: "vendeur@example.com",
       password: vendeurPassword,
@@ -36,6 +51,7 @@ async function main() {
       telephone: "06 11 22 33 44",
       role: "VENDEUR",
       actif: true,
+      boutiqueId: boutique.id,
     },
   });
   console.log("Created vendeur user:", vendeur.email);
@@ -43,7 +59,7 @@ async function main() {
   const lecteurPassword = await bcrypt.hash("lecteur123", 10);
   const lecteur = await prisma.user.upsert({
     where: { email: "lecteur@example.com" },
-    update: {},
+    update: { boutiqueId: boutique.id },
     create: {
       email: "lecteur@example.com",
       password: lecteurPassword,
@@ -51,6 +67,7 @@ async function main() {
       prenom: "Marie",
       role: "LECTEUR",
       actif: true,
+      boutiqueId: boutique.id,
     },
   });
   console.log("Created lecteur user:", lecteur.email);
@@ -328,7 +345,7 @@ async function main() {
       description: "Filtre à huile d'origine pour Yamaha MT-07",
       prixVente: 12.5,
       prixAchat: 8.0,
-      tauxTVA: 20,
+      tauxTVA: 0,
       stock: 15,
       stockMin: 5,
       stockMax: 30,
@@ -350,7 +367,7 @@ async function main() {
       description: "Plaquettes de frein avant haute performance",
       prixVente: 45.9,
       prixAchat: 30.0,
-      tauxTVA: 20,
+      tauxTVA: 0,
       stock: 8,
       stockMin: 3,
       stockMax: 20,
@@ -372,7 +389,7 @@ async function main() {
       description: "Chaîne de transmission renforcée",
       prixVente: 89.0,
       prixAchat: 60.0,
-      tauxTVA: 20,
+      tauxTVA: 0,
       stock: 6,
       stockMin: 2,
       stockMax: 15,
@@ -395,7 +412,7 @@ async function main() {
       description: "Filtre à air haute performance",
       prixVente: 35.0,
       prixAchat: 22.0,
-      tauxTVA: 20,
+      tauxTVA: 0,
       stock: 2,
       stockMin: 3,
       stockMax: 10,
@@ -417,7 +434,7 @@ async function main() {
       description: "Plaquettes de frein Brembo haute performance",
       prixVente: 75.0,
       prixAchat: 50.0,
-      tauxTVA: 20,
+      tauxTVA: 0,
       stock: 12,
       stockMin: 4,
       stockMax: 25,

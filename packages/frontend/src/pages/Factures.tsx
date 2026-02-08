@@ -8,8 +8,26 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Autocomplete } from "@/components/ui/Autocomplete";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
-import { FileText, Plus, Trash2, Printer, Search, X, Check, Download, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  Trash2,
+  Printer,
+  Search,
+  X,
+  Check,
+  Download,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  CheckCircle,
+  Ban,
+  DollarSign,
+  Filter,
+} from "lucide-react";
 import { Facture, Piece, Client, facturesApi, piecesApi, clientsApi, exportApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import html2pdf from "html2pdf.js";
 
 interface CartItem {
@@ -24,13 +42,18 @@ interface CartItem {
 }
 
 export default function Factures() {
+  const { user } = useAuth();
+  const isVendeurOrAdmin = user?.role === "ADMIN" || user?.role === "VENDEUR";
+
   const [factures, setFactures] = useState<Facture[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [selectedFacture, setSelectedFacture] = useState<Facture | null>(null);
+  const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statutFilter, setStatutFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +66,7 @@ export default function Factures() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [methodePaiement, setMethodePaiement] = useState("especes");
   const [notes, setNotes] = useState("");
-  const [tauxTVA, setTauxTVA] = useState(20);
+  const [tauxTVA, setTauxTVA] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -53,11 +76,7 @@ export default function Factures() {
     try {
       setLoading(true);
       setError(null);
-      const [facturesData, piecesData, clientsData] = await Promise.all([
-        facturesApi.getAll(),
-        piecesApi.getAll(),
-        clientsApi.getAll()
-      ]);
+      const [facturesData, piecesData, clientsData] = await Promise.all([facturesApi.getAll(), piecesApi.getAll(), clientsApi.getAll()]);
       setFactures(facturesData);
       setPieces(piecesData);
       setClients(clientsData);
@@ -143,22 +162,13 @@ export default function Factures() {
       return;
     }
 
-    // Vérifier les stocks
-    for (const item of cart) {
-      if (item.pieceId) {
-        const piece = pieces.find((p) => p.id === item.pieceId);
-        if (piece && piece.stock < item.quantite) {
-          alert(`Stock insuffisant pour ${piece.nom} (disponible: ${piece.stock})`);
-          return;
-        }
-      }
-    }
+    // Le stock sera vérifié côté backend au moment de la validation (BROUILLON → EN_ATTENTE)
 
     try {
       setSaving(true);
       const factureData = {
         clientId: selectedClientId || undefined,
-        items: cart.map(item => ({
+        items: cart.map((item) => ({
           pieceId: item.pieceId || undefined,
           designation: item.designation,
           description: item.description,
@@ -170,17 +180,22 @@ export default function Factures() {
         notes: notes || undefined,
       };
 
-      const newFacture = await facturesApi.create(factureData);
+      let resultFacture: Facture;
+      if (editingFacture) {
+        resultFacture = await facturesApi.update(editingFacture.id, factureData);
+      } else {
+        resultFacture = await facturesApi.create(factureData);
+      }
       await loadData();
       resetForm();
       setIsFormOpen(false);
 
       // Ouvrir l'aperçu d'impression
-      setSelectedFacture(newFacture);
+      setSelectedFacture(resultFacture);
       setIsPrintOpen(true);
     } catch (err) {
-      console.error("Erreur lors de la création de la facture:", err);
-      alert("Erreur lors de la création de la facture");
+      console.error("Erreur lors de la sauvegarde de la facture:", err);
+      alert(editingFacture ? "Erreur lors de la modification de la facture" : "Erreur lors de la création de la facture");
     } finally {
       setSaving(false);
     }
@@ -193,6 +208,78 @@ export default function Factures() {
     setCart([]);
     setMethodePaiement("especes");
     setNotes("");
+    setEditingFacture(null);
+  };
+
+  const handleEditFacture = (facture: Facture) => {
+    setEditingFacture(facture);
+    setSelectedClientId(facture.clientId || "");
+    setClientNom(facture.client?.nom || "");
+    setClientTelephone(facture.client?.telephone || "");
+    setMethodePaiement(facture.methodePaiement || "especes");
+    setNotes(facture.notes || "");
+    setCart(
+      facture.items.map((item) => ({
+        id: item.id,
+        pieceId: item.pieceId || "",
+        designation: item.designation,
+        description: item.description || undefined,
+        quantite: item.quantite,
+        prixUnitaire: item.prixUnitaire,
+        tva: item.tva,
+        total: item.total,
+      })),
+    );
+    if (facture.items.length > 0) {
+      setTauxTVA(facture.items[0].tva);
+    }
+    setIsFormOpen(true);
+  };
+
+  const handleValidateFacture = async (facture: Facture) => {
+    if (!confirm(`Valider la facture ${facture.numero} ? Le stock sera mis à jour et la facture ne sera plus modifiable.`)) {
+      return;
+    }
+    try {
+      await facturesApi.updateStatus(facture.id, "EN_ATTENTE");
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la validation de la facture");
+    }
+  };
+
+  const handlePayerFacture = async (facture: Facture) => {
+    if (!confirm(`Marquer la facture ${facture.numero} comme payée ?`)) return;
+    try {
+      await facturesApi.updateStatus(facture.id, "PAYEE");
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors du paiement");
+    }
+  };
+
+  const handleAnnulerFacture = async (facture: Facture) => {
+    if (!confirm(`Annuler la facture ${facture.numero} ? Le stock sera remis en place.`)) return;
+    try {
+      await facturesApi.updateStatus(facture.id, "ANNULEE");
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'annulation");
+    }
+  };
+
+  const handleDeleteFacture = async (facture: Facture) => {
+    if (!confirm(`Supprimer définitivement la facture ${facture.numero} ? Cette action est irréversible.`)) return;
+    try {
+      await facturesApi.delete(facture.id);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression");
+    }
   };
 
   const handlePrint = () => {
@@ -217,6 +304,8 @@ export default function Factures() {
 
   const getStatutBadge = (statut: string) => {
     switch (statut) {
+      case "BROUILLON":
+        return <Badge variant="secondary">Brouillon</Badge>;
       case "PAYEE":
         return <Badge variant="success">Payée</Badge>;
       case "EN_ATTENTE":
@@ -230,10 +319,12 @@ export default function Factures() {
     }
   };
 
-  const filteredFactures = factures.filter(
-    (f) => f.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           (f.client?.nom || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFactures = factures.filter((f) => {
+    const matchesSearch =
+      f.numero.toLowerCase().includes(searchTerm.toLowerCase()) || (f.client?.nom || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatut = statutFilter === "all" || f.statut === statutFilter;
+    return matchesSearch && matchesStatut;
+  });
 
   if (loading) {
     return (
@@ -273,7 +364,7 @@ export default function Factures() {
         </div>
       </div>
 
-      {/* Recherche */}
+      {/* Recherche + Filtre statut */}
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -284,6 +375,14 @@ export default function Factures() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-48">
+          <option value="all">Tous les statuts</option>
+          <option value="BROUILLON">Brouillons</option>
+          <option value="EN_ATTENTE">En attente</option>
+          <option value="PAYEE">Payées</option>
+          <option value="PARTIELLEMENT_PAYEE">Partiellement payées</option>
+          <option value="ANNULEE">Annulées</option>
+        </Select>
       </div>
 
       {/* Liste des factures */}
@@ -307,7 +406,7 @@ export default function Factures() {
                 <th className="px-4 py-3">Articles</th>
                 <th className="px-4 py-3">Statut</th>
                 <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 w-10"></th>
+                <th className="px-4 py-3 w-28"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -319,10 +418,11 @@ export default function Factures() {
                     onClick={() => setExpandedFacture(expandedFacture === facture.id ? null : facture.id)}
                   >
                     <td className="px-4 py-3">
-                      {expandedFacture === facture.id
-                        ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      }
+                      {expandedFacture === facture.id ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </td>
                     <td className="px-4 py-3 font-medium">{facture.numero}</td>
                     <td className="px-4 py-3">{facture.client?.nom || "Client anonyme"}</td>
@@ -333,21 +433,91 @@ export default function Factures() {
                         year: "numeric",
                       })}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{facture.items.length} article{facture.items.length > 1 ? 's' : ''}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {facture.items.length} article{facture.items.length > 1 ? "s" : ""}
+                    </td>
                     <td className="px-4 py-3">{getStatutBadge(facture.statut)}</td>
                     <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Fmg</td>
                     <td className="px-4 py-3">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedFacture(facture);
-                          setIsPrintOpen(true);
-                        }}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Modifier"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditFacture(facture);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Valider la facture"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleValidateFacture(facture);
+                              }}
+                            >
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                          </>
+                        )}
+                        {(facture.statut === "EN_ATTENTE" || facture.statut === "PARTIELLEMENT_PAYEE") && isVendeurOrAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Marquer comme payée"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePayerFacture(facture);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                        {facture.statut !== "ANNULEE" && facture.statut !== "BROUILLON" && isVendeurOrAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Annuler la facture"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAnnulerFacture(facture);
+                            }}
+                          >
+                            <Ban className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Imprimer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedFacture(facture);
+                            setIsPrintOpen(true);
+                          }}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        {user?.role === "ADMIN" && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Supprimer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFacture(facture);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                   {expandedFacture === facture.id && (
@@ -358,7 +528,8 @@ export default function Factures() {
                             <div key={item.id} className="flex justify-between items-center text-sm py-1">
                               <span>{item.designation}</span>
                               <span className="text-muted-foreground">
-                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg = <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
+                                <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
                               </span>
                             </div>
                           ))}
@@ -377,7 +548,7 @@ export default function Factures() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Nouvelle Facture</DialogTitle>
+            <DialogTitle className="text-2xl">{editingFacture ? `Modifier ${editingFacture.numero}` : "Nouvelle Facture"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -537,12 +708,12 @@ export default function Factures() {
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Création...
+                  {editingFacture ? "Modification..." : "Création..."}
                 </>
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Créer la facture
+                  {editingFacture ? "Enregistrer les modifications" : "Créer la facture"}
                 </>
               )}
             </Button>

@@ -12,6 +12,7 @@ interface StockAdjustmentParams {
   motif: string;
   reference: string | null;
   userId: string;
+  boutiqueId?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export async function adjustStock({
   motif,
   reference,
   userId,
+  boutiqueId,
 }: StockAdjustmentParams): Promise<{ oldStock: number; newStock: number }> {
   const piece = await tx.piece.findUnique({ where: { id: pieceId } });
   if (!piece) {
@@ -72,6 +74,7 @@ export async function adjustStock({
       motif,
       reference,
       userId,
+      boutiqueId: boutiqueId || piece.boutiqueId || undefined,
     },
   });
 

@@ -1,18 +1,20 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
 import { authenticate, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { logActivity } from "../lib/activityLog.js";
 import { exportToXlsx } from "../utils/xlsx.js";
 import { buildDateFilter } from "../utils/filters.js";
 import { handleRouteError } from "../utils/handleError.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 // Export pièces
-router.get("/pieces", authenticate, async (req: AuthRequest, res) => {
+router.get("/pieces", async (req: AuthRequest, res) => {
   try {
     const pieces = await prisma.piece.findMany({
-      where: { actif: true },
+      where: { actif: true, boutiqueId: req.boutiqueId },
       include: { marque: true, categorie: true },
       orderBy: { nom: "asc" },
     });
@@ -38,12 +40,13 @@ router.get("/pieces", authenticate, async (req: AuthRequest, res) => {
 });
 
 // Export factures
-router.get("/factures", authenticate, async (req: AuthRequest, res) => {
+router.get("/factures", async (req: AuthRequest, res) => {
   try {
     const { from, to } = req.query;
     const where: Record<string, unknown> = {};
     const dateFilter = buildDateFilter(from as string, to as string);
     if (dateFilter) where.dateFacture = dateFilter;
+    where.boutiqueId = req.boutiqueId;
 
     const factures = await prisma.facture.findMany({
       where,
@@ -73,12 +76,13 @@ router.get("/factures", authenticate, async (req: AuthRequest, res) => {
 });
 
 // Export mouvements de stock
-router.get("/mouvements", authenticate, async (req: AuthRequest, res) => {
+router.get("/mouvements", async (req: AuthRequest, res) => {
   try {
     const { from, to } = req.query;
     const where: Record<string, unknown> = {};
     const dateFilter = buildDateFilter(from as string, to as string);
     if (dateFilter) where.date = dateFilter;
+    where.boutiqueId = req.boutiqueId;
 
     const mouvements = await prisma.mouvementStock.findMany({
       where,

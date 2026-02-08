@@ -43,7 +43,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
     prixAchat: 0,
     stock: 0,
     stockMin: 0,
-    tauxTVA: 20,
+    tauxTVA: 0,
   });
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
         prixAchat: piece.prixAchat || 0,
         stock: piece.stock,
         stockMin: piece.stockMin,
-        tauxTVA: piece.tauxTVA || 20,
+        tauxTVA: piece.tauxTVA || 0,
       });
     } else {
       setFormData({
@@ -77,7 +77,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
         prixAchat: 0,
         stock: 0,
         stockMin: 0,
-        tauxTVA: 20,
+        tauxTVA: 0,
       });
     }
   }, [piece, open]);
@@ -85,10 +85,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
   const loadCategoriesAndMarques = async () => {
     try {
       setLoadingData(true);
-      const [cats, mrs] = await Promise.all([
-        categoriesApi.getAll(),
-        marquesApi.getAll()
-      ]);
+      const [cats, mrs] = await Promise.all([categoriesApi.getAll(), marquesApi.getAll()]);
       setCategories(cats);
       setMarques(mrs);
     } catch (err) {
@@ -183,7 +180,15 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
               </div>
               <div>
                 <Label htmlFor="prixVente">Prix de vente (Ar) *</Label>
-                <Input id="prixVente" name="prixVente" type="number" step="0.01" value={formData.prixVente} onChange={handleChange} required />
+                <Input
+                  id="prixVente"
+                  name="prixVente"
+                  type="number"
+                  step="0.01"
+                  value={formData.prixVente}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="tauxTVA">TVA (%)</Label>
@@ -212,8 +217,10 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Enregistrement...
                   </>
+                ) : piece ? (
+                  "Modifier"
                 ) : (
-                  piece ? "Modifier" : "Ajouter"
+                  "Ajouter"
                 )}
               </Button>
             </DialogFooter>

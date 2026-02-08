@@ -1,8 +1,7 @@
-import { Piece, Commande, Achat, MouvementStock, Fournisseur, Facture, Client } from "@/types";
+import { Piece, Achat, MouvementStock, Fournisseur, Facture, Client } from "@/types";
 
 const STORAGE_KEYS = {
   PIECES: "gestion_moto_pieces",
-  COMMANDES: "gestion_moto_commandes",
   ACHATS: "gestion_moto_achats",
   MOUVEMENTS: "gestion_moto_mouvements",
   FOURNISSEURS: "gestion_moto_fournisseurs",
@@ -44,37 +43,6 @@ export const deletePiece = (id: string): void => {
 export const getPieceById = (id: string): Piece | undefined => {
   const pieces = getPieces();
   return pieces.find((p) => p.id === id);
-};
-
-// Commandes
-export const getCommandes = (): Commande[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.COMMANDES);
-  return data ? JSON.parse(data) : [];
-};
-
-export const saveCommandes = (commandes: Commande[]): void => {
-  localStorage.setItem(STORAGE_KEYS.COMMANDES, JSON.stringify(commandes));
-};
-
-export const addCommande = (commande: Commande): void => {
-  const commandes = getCommandes();
-  commandes.push(commande);
-  saveCommandes(commandes);
-};
-
-export const updateCommande = (id: string, updatedCommande: Commande): void => {
-  const commandes = getCommandes();
-  const index = commandes.findIndex((c) => c.id === id);
-  if (index !== -1) {
-    commandes[index] = updatedCommande;
-    saveCommandes(commandes);
-  }
-};
-
-export const deleteCommande = (id: string): void => {
-  const commandes = getCommandes();
-  const filtered = commandes.filter((c) => c.id !== id);
-  saveCommandes(filtered);
 };
 
 // Achats

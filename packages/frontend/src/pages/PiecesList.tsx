@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Label } from "@/components/ui/Label";
-import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download, ArrowLeftRight } from "lucide-react";
 import { piecesApi, categoriesApi, marquesApi, exportApi, Piece, Categorie, Marque } from "@/lib/api";
 import PieceForm from "@/components/PieceForm";
+import ReplacePieceDialog from "@/components/ReplacePieceDialog";
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 
@@ -21,6 +22,7 @@ export default function PiecesList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [replacePiece, setReplacePiece] = useState<Piece | null>(null);
 
   // Filtres
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -74,6 +76,11 @@ export default function PiecesList() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReplacePiece = (e: React.MouseEvent, piece: Piece) => {
+    e.preventDefault();
+    setReplacePiece(piece);
   };
 
   const handleEditPiece = (e: React.MouseEvent, piece: Piece) => {
@@ -438,6 +445,9 @@ export default function PiecesList() {
                       <p className="text-sm text-muted-foreground mt-1">Réf: {piece.reference}</p>
                     </Link>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={(e) => handleReplacePiece(e, piece)} title="Remplacer">
+                        <ArrowLeftRight className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={(e) => handleEditPiece(e, piece)}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -501,6 +511,15 @@ export default function PiecesList() {
         onSave={handleSavePiece}
         saving={saving}
       />
+
+      {replacePiece && (
+        <ReplacePieceDialog
+          piece={replacePiece}
+          open={!!replacePiece}
+          onClose={() => setReplacePiece(null)}
+          onSuccess={loadData}
+        />
+      )}
     </div>
   );
 }

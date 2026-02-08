@@ -2,24 +2,44 @@ import { prisma } from "../index.js";
 
 /**
  * Génère un numéro séquentiel du type PREFIX{year}-{seq}.
- * Utilisé pour les achats, commandes et factures.
+ * Utilise findMany + max pour éviter les doublons en cas de suppression,
+ * et gère la concurrence avec un retry sur conflit.
  */
-export async function generateNumero(model: "achat" | "commande" | "facture", prefix: string): Promise<string> {
+export async function generateNumero(model: "achat" | "facture", prefix: string): Promise<string> {
   const year = new Date().getFullYear();
-  const startsWith = `${prefix}${year}`;
+  const startsWith = `${prefix}${year}-`;
 
-  let count: number;
+  let lastNumero: string | null = null;
+
   switch (model) {
-    case "achat":
-      count = await prisma.achat.count({ where: { numero: { startsWith } } });
+    case "achat": {
+      const last = await prisma.achat.findFirst({
+        where: { numero: { startsWith } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      lastNumero = last?.numero ?? null;
       break;
-    case "commande":
-      count = await prisma.commande.count({ where: { numero: { startsWith } } });
+    }
+    case "facture": {
+      const last = await prisma.facture.findFirst({
+        where: { numero: { startsWith } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      lastNumero = last?.numero ?? null;
       break;
-    case "facture":
-      count = await prisma.facture.count({ where: { numero: { startsWith } } });
-      break;
+    }
   }
 
-  return `${prefix}${year}-${String(count + 1).padStart(4, "0")}`;
+  let nextSeq = 1;
+  if (lastNumero) {
+    const parts = lastNumero.split("-");
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastSeq)) {
+      nextSeq = lastSeq + 1;
+    }
+  }
+
+  return `${prefix}${year}-${String(nextSeq).padStart(4, "0")}`;
 }

@@ -1,18 +1,22 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { handleRouteError } from "../utils/handleError.js";
+import { ensureBoutique } from "../utils/ensureBoutique.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 // Get all mouvements
-router.get("/", authenticate, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { pieceId, type, limit } = req.query;
 
     const where: Record<string, unknown> = {};
     if (pieceId) where.pieceId = pieceId;
     if (type) where.type = type;
+    where.boutiqueId = (req as AuthRequest).boutiqueId;
 
     const mouvements = await prisma.mouvementStock.findMany({
       where,
@@ -31,12 +35,12 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 // Get mouvements by piece
-router.get("/piece/:pieceId", authenticate, async (req, res) => {
+router.get("/piece/:pieceId", async (req, res) => {
   try {
     const { pieceId } = req.params;
 
     const mouvements = await prisma.mouvementStock.findMany({
-      where: { pieceId },
+      where: { pieceId, boutiqueId: (req as AuthRequest).boutiqueId },
       include: {
         user: { select: { id: true, nom: true, prenom: true } },
       },
@@ -50,7 +54,7 @@ router.get("/piece/:pieceId", authenticate, async (req, res) => {
 });
 
 // Get mouvement by ID
-router.get("/:id", authenticate, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -62,9 +66,7 @@ router.get("/:id", authenticate, async (req, res) => {
       },
     });
 
-    if (!mouvement) {
-      return res.status(404).json({ error: "Mouvement non trouvé" });
-    }
+    if (!(await ensureBoutique(mouvement, req as AuthRequest, res, "Mouvement"))) return;
 
     res.json(mouvement);
   } catch (error) {

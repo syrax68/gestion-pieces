@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../index.js";
-import { authenticate, isVendeurOrAdmin, isAdmin } from "../middleware/auth.js";
+import { authenticate, isVendeurOrAdmin, isAdmin, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { handleRouteError } from "../utils/handleError.js";
 import { serializeFacture } from "../utils/decimal.js";
+import { ensureBoutique } from "../utils/ensureBoutique.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 const clientSchema = z.object({
   nom: z.string().min(1, "Nom requis"),
@@ -19,7 +22,7 @@ const clientSchema = z.object({
 });
 
 // Get all clients
-router.get("/", authenticate, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { search } = req.query;
 
@@ -32,6 +35,7 @@ router.get("/", authenticate, async (req, res) => {
         { email: { contains: search as string, mode: "insensitive" } },
       ];
     }
+    where.boutiqueId = (req as AuthRequest).boutiqueId;
 
     const clients = await prisma.client.findMany({
       where,
@@ -45,7 +49,7 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 // Get client by ID
-router.get("/:id", authenticate, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const client = await prisma.client.findUnique({
@@ -59,14 +63,12 @@ router.get("/:id", authenticate, async (req, res) => {
       },
     });
 
-    if (!client) {
-      return res.status(404).json({ error: "Client non trouvé" });
-    }
+    if (!(await ensureBoutique(client, req as AuthRequest, res, "Client"))) return;
 
     // Transform Decimal values
     const result = {
-      ...client,
-      factures: client.factures.map(serializeFacture),
+      ...client!,
+      factures: client!.factures.map(serializeFacture),
     };
 
     res.json(result);
@@ -76,10 +78,10 @@ router.get("/:id", authenticate, async (req, res) => {
 });
 
 // Create client
-router.post("/", authenticate, isVendeurOrAdmin, async (req, res) => {
+router.post("/", isVendeurOrAdmin, async (req, res) => {
   try {
     const data = clientSchema.parse(req.body);
-    const client = await prisma.client.create({ data });
+    const client = await prisma.client.create({ data: { ...data, boutiqueId: (req as AuthRequest).boutiqueId! } });
     res.status(201).json(client);
   } catch (error) {
     handleRouteError(res, error, "la création");
@@ -87,9 +89,11 @@ router.post("/", authenticate, isVendeurOrAdmin, async (req, res) => {
 });
 
 // Update client
-router.put("/:id", authenticate, isVendeurOrAdmin, async (req, res) => {
+router.put("/:id", isVendeurOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await prisma.client.findUnique({ where: { id } });
+    if (!(await ensureBoutique(existing, req as AuthRequest, res, "Client"))) return;
     const data = clientSchema.partial().parse(req.body);
     const client = await prisma.client.update({ where: { id }, data });
     res.json(client);
@@ -99,9 +103,11 @@ router.put("/:id", authenticate, isVendeurOrAdmin, async (req, res) => {
 });
 
 // Delete client (admin only)
-router.delete("/:id", authenticate, isAdmin, async (req, res) => {
+router.delete("/:id", isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await prisma.client.findUnique({ where: { id } });
+    if (!(await ensureBoutique(existing, req as AuthRequest, res, "Client"))) return;
     await prisma.client.delete({ where: { id } });
     res.json({ message: "Client supprimé" });
   } catch (error) {

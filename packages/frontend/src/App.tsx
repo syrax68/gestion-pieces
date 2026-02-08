@@ -5,12 +5,13 @@ import Dashboard from "./pages/Dashboard";
 import PiecesList from "./pages/PiecesList";
 import PieceDetails from "./pages/PieceDetails";
 import StockManagement from "./pages/StockManagement";
-import Commandes from "./pages/Commandes";
 import Achats from "./pages/Achats";
 import Factures from "./pages/Factures";
 import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Activity from "./pages/Activity";
+import Clients from "./pages/Clients";
+import Fournisseurs from "./pages/Fournisseurs";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -67,9 +68,10 @@ function AppRoutes() {
                 <Route path="/pieces" element={<PiecesList />} />
                 <Route path="/pieces/:id" element={<PieceDetails />} />
                 <Route path="/stock" element={<StockManagement />} />
-                <Route path="/commandes" element={<Commandes />} />
                 <Route path="/achats" element={<Achats />} />
                 <Route path="/factures" element={<Factures />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/fournisseurs" element={<Fournisseurs />} />
                 <Route path="/activite" element={<Activity />} />
                 <Route
                   path="/users"

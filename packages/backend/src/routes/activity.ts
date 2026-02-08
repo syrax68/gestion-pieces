@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { handleRouteError } from "../utils/handleError.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 // Get activity logs (paginated)
-router.get("/", authenticate, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { entity, limit = "50", offset = "0" } = req.query;
 
@@ -14,6 +16,7 @@ router.get("/", authenticate, async (req, res) => {
     if (entity && entity !== "ALL") {
       where.entity = entity;
     }
+    where.boutiqueId = (req as AuthRequest).boutiqueId;
 
     const [logs, total] = await Promise.all([
       prisma.activityLog.findMany({

@@ -6,7 +6,6 @@ import {
   Clock,
   Package,
   FileText,
-  Truck,
   ShoppingCart,
   Users,
   BarChart3,
@@ -24,7 +23,6 @@ const ENTITY_OPTIONS = [
   { value: "", label: "Toutes les entités" },
   { value: "PIECE", label: "Pièces" },
   { value: "FACTURE", label: "Factures" },
-  { value: "COMMANDE", label: "Commandes" },
   { value: "ACHAT", label: "Achats" },
   { value: "MOUVEMENT", label: "Mouvements" },
   { value: "USER", label: "Utilisateurs" }
@@ -98,8 +96,6 @@ export default function Activity() {
         return <Package className="h-4 w-4 text-blue-500" />;
       case "FACTURE":
         return <FileText className="h-4 w-4 text-green-500" />;
-      case "COMMANDE":
-        return <Truck className="h-4 w-4 text-purple-500" />;
       case "ACHAT":
         return <ShoppingCart className="h-4 w-4 text-orange-500" />;
       case "MOUVEMENT":
@@ -115,7 +111,6 @@ export default function Activity() {
     switch (entity) {
       case "PIECE": return "Pièce";
       case "FACTURE": return "Facture";
-      case "COMMANDE": return "Commande";
       case "ACHAT": return "Achat";
       case "MOUVEMENT": return "Mouvement";
       case "USER": return "Utilisateur";

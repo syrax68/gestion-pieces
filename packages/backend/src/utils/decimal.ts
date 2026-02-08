@@ -100,42 +100,6 @@ export function serializeAchat<
   };
 }
 
-// ---------- Commandes ----------
-
-interface CommandeItemRaw {
-  prixUnitaire: unknown;
-  remise: unknown;
-  total: unknown;
-}
-
-export function serializeCommandeItem<T extends CommandeItemRaw>(i: T) {
-  return {
-    ...i,
-    prixUnitaire: Number(i.prixUnitaire),
-    remise: Number(i.remise),
-    total: Number(i.total),
-  };
-}
-
-export function serializeCommande<
-  T extends {
-    sousTotal: unknown;
-    remise: unknown;
-    fraisPort: unknown;
-    total: unknown;
-    items?: CommandeItemRaw[];
-  },
->(c: T) {
-  return {
-    ...c,
-    sousTotal: Number(c.sousTotal),
-    remise: Number(c.remise),
-    fraisPort: Number(c.fraisPort),
-    total: Number(c.total),
-    ...(c.items ? { items: c.items.map(serializeCommandeItem) } : {}),
-  };
-}
-
 // ---------- Historique prix ----------
 
 export function serializeHistoriquePrix<

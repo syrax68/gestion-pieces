@@ -38,7 +38,7 @@ async function creerFacture() {
       quantite: v.qte,
       prixUnitaire,
       remise: 0,
-      tva: 20,
+      tva: 0,
       total
     });
     console.log('  ' + piece.nom + ' x' + v.qte + ' @ ' + prixUnitaire.toLocaleString() + ' Fmg = ' + total.toLocaleString() + ' Fmg');

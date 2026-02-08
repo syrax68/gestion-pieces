@@ -2,13 +2,16 @@ import { Router, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../index.js";
 import { authenticate, isVendeurOrAdmin, isAdmin, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { logActivity } from "../lib/activityLog.js";
 import { serializeFacture } from "../utils/decimal.js";
 import { generateNumero } from "../utils/generateNumero.js";
 import { handleRouteError } from "../utils/handleError.js";
 import { adjustStock } from "../services/stockService.js";
+import { ensureBoutique } from "../utils/ensureBoutique.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 const factureItemSchema = z.object({
   pieceId: z.string().optional(),
@@ -34,12 +37,13 @@ const factureIncludes = {
 } as const;
 
 // Get all factures
-router.get("/", authenticate, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { statut, clientId } = req.query;
     const where: Record<string, unknown> = {};
     if (statut) where.statut = statut;
     if (clientId) where.clientId = clientId;
+    where.boutiqueId = (req as AuthRequest).boutiqueId;
 
     const factures = await prisma.facture.findMany({
       where,
@@ -54,7 +58,7 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 // Get facture by ID
-router.get("/:id", authenticate, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const facture = await prisma.facture.findUnique({
       where: { id: req.params.id },
@@ -64,62 +68,111 @@ router.get("/:id", authenticate, async (req, res) => {
       },
     });
 
-    if (!facture) {
-      return res.status(404).json({ error: "Facture non trouvée" });
-    }
+    if (!(await ensureBoutique(facture, req as AuthRequest, res, "Facture"))) return;
 
-    res.json(serializeFacture(facture));
+    res.json(serializeFacture(facture!));
   } catch (error) {
     handleRouteError(res, error, "la récupération");
   }
 });
 
-// Create facture (with automatic stock update)
-router.post("/", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+// Helper: compute item totals
+function computeFactureTotals(items: z.infer<typeof factureItemSchema>[], remise: number) {
+  const itemsWithTotals = items.map((item) => {
+    const itemTotal = item.quantite * item.prixUnitaire * (1 - item.remise / 100);
+    return { ...item, total: itemTotal };
+  });
+
+  const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
+  const sousTotalApresRemise = sousTotal - remise;
+  const tvaTotal = itemsWithTotals.reduce((sum, item) => {
+    const itemHT = item.total * (sousTotal > 0 ? sousTotalApresRemise / sousTotal : 1);
+    return sum + itemHT * (item.tva / 100);
+  }, 0);
+  const total = sousTotalApresRemise + tvaTotal;
+
+  return { itemsWithTotals, sousTotal, tvaTotal, total };
+}
+
+// Create facture (as BROUILLON — no stock adjustment yet)
+router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = factureSchema.parse(req.body);
     const numero = await generateNumero("facture", "F");
 
-    const itemsWithTotals = data.items.map((item) => {
-      const itemTotal = item.quantite * item.prixUnitaire * (1 - item.remise / 100);
-      return { ...item, total: itemTotal };
+    const { itemsWithTotals, sousTotal, tvaTotal, total } = computeFactureTotals(data.items, data.remise);
+
+    const facture = await prisma.facture.create({
+      data: {
+        numero,
+        clientId: data.clientId,
+        createurId: req.user!.userId,
+        boutiqueId: req.boutiqueId!,
+        sousTotal,
+        remise: data.remise,
+        remisePourcent: sousTotal > 0 ? (data.remise / sousTotal) * 100 : 0,
+        tva: tvaTotal,
+        total,
+        statut: "BROUILLON",
+        methodePaiement: data.methodePaiement,
+        notes: data.notes,
+        items: {
+          create: itemsWithTotals.map((item) => ({
+            pieceId: item.pieceId || null,
+            designation: item.designation,
+            description: item.description,
+            quantite: item.quantite,
+            prixUnitaire: item.prixUnitaire,
+            remise: item.remise,
+            tva: item.tva,
+            total: item.total,
+          })),
+        },
+      },
+      include: factureIncludes,
     });
 
-    const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
-    const sousTotalApresRemise = sousTotal - data.remise;
-    const tvaTotal = itemsWithTotals.reduce((sum, item) => {
-      const itemHT = item.total * (sousTotal > 0 ? sousTotalApresRemise / sousTotal : 1);
-      return sum + itemHT * (item.tva / 100);
-    }, 0);
-    const total = sousTotalApresRemise + tvaTotal;
+    await logActivity(
+      req.user!.userId,
+      "CREATE",
+      "FACTURE",
+      facture.id,
+      `Création brouillon facture ${facture.numero} — ${Number(facture.total).toLocaleString("fr-FR")} Fmg`,
+    );
 
-    // Verify stock availability for pieces
-    for (const item of data.items) {
-      if (item.pieceId) {
-        const piece = await prisma.piece.findUnique({ where: { id: item.pieceId } });
-        if (!piece) {
-          return res.status(400).json({ error: `Pièce ${item.pieceId} non trouvée` });
-        }
-        if (piece.stock < item.quantite) {
-          return res.status(400).json({
-            error: `Stock insuffisant pour ${piece.nom} (disponible: ${piece.stock}, demandé: ${item.quantite})`,
-          });
-        }
-      }
+    res.status(201).json(serializeFacture(facture));
+  } catch (error) {
+    handleRouteError(res, error, "la création");
+  }
+});
+
+// Update facture (only BROUILLON can be edited)
+router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.facture.findUnique({ where: { id } });
+    if (!(await ensureBoutique(existing, req, res, "Facture"))) return;
+    if (existing!.statut !== "BROUILLON") {
+      return res.status(400).json({ error: "Seules les factures en brouillon peuvent être modifiées" });
     }
 
+    const data = factureSchema.parse(req.body);
+    const { itemsWithTotals, sousTotal, tvaTotal, total } = computeFactureTotals(data.items, data.remise);
+
     const facture = await prisma.$transaction(async (tx) => {
-      const newFacture = await tx.facture.create({
+      // Delete old items
+      await tx.factureItem.deleteMany({ where: { factureId: id } });
+
+      // Update facture with new data
+      const updated = await tx.facture.update({
+        where: { id },
         data: {
-          numero,
-          clientId: data.clientId,
-          createurId: req.user!.userId,
+          clientId: data.clientId || null,
           sousTotal,
           remise: data.remise,
           remisePourcent: sousTotal > 0 ? (data.remise / sousTotal) * 100 : 0,
           tva: tvaTotal,
           total,
-          statut: "EN_ATTENTE",
           methodePaiement: data.methodePaiement,
           notes: data.notes,
           items: {
@@ -138,40 +191,19 @@ router.post("/", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: R
         include: factureIncludes,
       });
 
-      // Update stock for each item with pieceId
-      for (const item of data.items) {
-        if (item.pieceId) {
-          await adjustStock({
-            tx,
-            pieceId: item.pieceId,
-            type: "SORTIE",
-            quantite: item.quantite,
-            motif: `Vente facture ${numero}`,
-            reference: numero,
-            userId: req.user!.userId,
-          });
-        }
-      }
-
-      return newFacture;
+      return updated;
     });
 
-    await logActivity(
-      req.user!.userId,
-      "CREATE",
-      "FACTURE",
-      facture.id,
-      `Création de la facture ${facture.numero} — ${Number(facture.total).toLocaleString("fr-FR")} Fmg`,
-    );
+    await logActivity(req.user!.userId, "UPDATE", "FACTURE", facture.id, `Modification brouillon facture ${facture.numero}`);
 
-    res.status(201).json(serializeFacture(facture));
+    res.json(serializeFacture(facture));
   } catch (error) {
-    handleRouteError(res, error, "la création");
+    handleRouteError(res, error, "la modification");
   }
 });
 
-// Update facture status
-router.patch("/:id/statut", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+// Update facture status (with stock adjustment on validation from BROUILLON)
+router.patch("/:id/statut", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { statut, montantPaye, methodePaiement } = req.body;
@@ -180,15 +212,82 @@ router.patch("/:id/statut", authenticate, isVendeurOrAdmin, async (req: AuthRequ
       return res.status(400).json({ error: "Statut invalide" });
     }
 
+    const existing = await prisma.facture.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+    if (!(await ensureBoutique(existing, req, res, "Facture"))) return;
+
+    // When validating from BROUILLON → non-BROUILLON/non-ANNULEE, adjust stock (SORTIE)
+    const isValidation = existing!.statut === "BROUILLON" && statut !== "BROUILLON" && statut !== "ANNULEE";
+
+    // When annulating a validated facture → return stock (RETOUR)
+    const isAnnulation = statut === "ANNULEE" && existing!.statut !== "BROUILLON" && existing!.statut !== "ANNULEE";
+
+    if (isValidation) {
+      // Verify stock availability
+      for (const item of existing!.items) {
+        if (item.pieceId) {
+          const piece = await prisma.piece.findUnique({ where: { id: item.pieceId } });
+          if (!piece) {
+            return res.status(400).json({ error: `Pièce non trouvée` });
+          }
+          if (piece.stock < item.quantite) {
+            return res.status(400).json({
+              error: `Stock insuffisant pour ${piece.nom} (disponible: ${piece.stock}, demandé: ${item.quantite})`,
+            });
+          }
+        }
+      }
+    }
+
     const updateData: Record<string, unknown> = { statut };
     if (montantPaye !== undefined) updateData.montantPaye = montantPaye;
     if (methodePaiement) updateData.methodePaiement = methodePaiement;
     if (statut === "PAYEE") updateData.datePaiement = new Date();
 
-    const facture = await prisma.facture.update({
-      where: { id },
-      data: updateData,
-      include: factureIncludes,
+    const facture = await prisma.$transaction(async (tx) => {
+      const updated = await tx.facture.update({
+        where: { id },
+        data: updateData,
+        include: factureIncludes,
+      });
+
+      // Adjust stock on validation (SORTIE)
+      if (isValidation) {
+        for (const item of existing!.items) {
+          if (item.pieceId) {
+            await adjustStock({
+              tx,
+              pieceId: item.pieceId,
+              type: "SORTIE",
+              quantite: item.quantite,
+              motif: `Vente facture ${existing!.numero}`,
+              reference: existing!.numero,
+              userId: req.user!.userId,
+            });
+          }
+        }
+      }
+
+      // Return stock on annulation (RETOUR)
+      if (isAnnulation) {
+        for (const item of existing!.items) {
+          if (item.pieceId) {
+            await adjustStock({
+              tx,
+              pieceId: item.pieceId,
+              type: "RETOUR",
+              quantite: item.quantite,
+              motif: `Annulation facture ${existing!.numero}`,
+              reference: existing!.numero,
+              userId: req.user!.userId,
+            });
+          }
+        }
+      }
+
+      return updated;
     });
 
     await logActivity(req.user!.userId, "STATUS_CHANGE", "FACTURE", facture.id, `Facture ${facture.numero} → ${statut}`);
@@ -200,12 +299,40 @@ router.patch("/:id/statut", authenticate, isVendeurOrAdmin, async (req: AuthRequ
 });
 
 // Delete facture (admin only)
-router.delete("/:id", authenticate, isAdmin, async (req: AuthRequest, res: Response) => {
+router.delete("/:id", isAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const facture = await prisma.facture.findUnique({ where: { id } });
-    await prisma.facture.delete({ where: { id } });
-    await logActivity(req.user!.userId, "DELETE", "FACTURE", id, `Suppression de la facture ${facture?.numero}`);
+    const facture = await prisma.facture.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!(await ensureBoutique(facture, req, res, "Facture"))) return;
+
+    // If facture was validated (not BROUILLON/ANNULEE), return stock before deleting
+    const wasValidated = facture!.statut !== "BROUILLON" && facture!.statut !== "ANNULEE";
+
+    await prisma.$transaction(async (tx) => {
+      if (wasValidated) {
+        for (const item of facture!.items) {
+          if (item.pieceId) {
+            await adjustStock({
+              tx,
+              pieceId: item.pieceId,
+              type: "RETOUR",
+              quantite: item.quantite,
+              motif: `Suppression facture ${facture!.numero}`,
+              reference: facture!.numero,
+              userId: req.user!.userId,
+            });
+          }
+        }
+      }
+
+      await tx.facture.delete({ where: { id } });
+    });
+
+    await logActivity(req.user!.userId, "DELETE", "FACTURE", id, `Suppression de la facture ${facture!.numero}`);
     res.json({ message: "Facture supprimée" });
   } catch (error) {
     handleRouteError(res, error, "la suppression");

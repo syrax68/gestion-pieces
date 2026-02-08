@@ -8,21 +8,43 @@ import {
   Piece,
   Facture,
   MouvementStock,
-  Commande,
   SalesChartData,
   TopPieceData,
   StockOverviewData,
-  ActivityLog
+  ActivityLog,
 } from "@/lib/api";
 import {
-  Package, AlertCircle, DollarSign, FileText, Loader2,
-  ArrowUp, ArrowDown, RefreshCw, TrendingUp,
-  Clock, Pencil, Plus, Trash2, ArrowRightLeft, Download,
-  Eye, EyeOff
+  Package,
+  AlertCircle,
+  DollarSign,
+  FileText,
+  Loader2,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
+  TrendingUp,
+  Clock,
+  Pencil,
+  Plus,
+  Trash2,
+  ArrowRightLeft,
+  Download,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, ComposedChart, Line
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  ComposedChart,
+  Line,
 } from "recharts";
 
 const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
@@ -32,7 +54,6 @@ export default function Dashboard() {
   const [recentData, setRecentData] = useState<{
     pieces: Piece[];
     factures: Facture[];
-    commandes: Commande[];
     mouvements: MouvementStock[];
   } | null>(null);
   const [lowStock, setLowStock] = useState<Piece[]>([]);
@@ -53,7 +74,7 @@ export default function Dashboard() {
           dashboardApi.getSalesChart().catch(() => []),
           dashboardApi.getTopPieces().catch(() => []),
           dashboardApi.getStockOverview().catch(() => []),
-          dashboardApi.getActivitySummary().catch(() => [])
+          dashboardApi.getActivitySummary().catch(() => []),
         ]);
         setStats(statsData);
         setRecentData(recent);
@@ -133,19 +154,26 @@ export default function Dashboard() {
 
   const getActionIcon = (action: string) => {
     switch (action) {
-      case "CREATE": return <Plus className="h-3.5 w-3.5 text-green-500" />;
-      case "UPDATE": return <Pencil className="h-3.5 w-3.5 text-blue-500" />;
-      case "DELETE": return <Trash2 className="h-3.5 w-3.5 text-red-500" />;
-      case "STATUS_CHANGE": return <ArrowRightLeft className="h-3.5 w-3.5 text-yellow-500" />;
-      case "STOCK_ADJUST": return <RefreshCw className="h-3.5 w-3.5 text-purple-500" />;
-      case "EXPORT": return <Download className="h-3.5 w-3.5 text-cyan-500" />;
-      default: return <Clock className="h-3.5 w-3.5 text-slate-500" />;
+      case "CREATE":
+        return <Plus className="h-3.5 w-3.5 text-green-500" />;
+      case "UPDATE":
+        return <Pencil className="h-3.5 w-3.5 text-blue-500" />;
+      case "DELETE":
+        return <Trash2 className="h-3.5 w-3.5 text-red-500" />;
+      case "STATUS_CHANGE":
+        return <ArrowRightLeft className="h-3.5 w-3.5 text-yellow-500" />;
+      case "STOCK_ADJUST":
+        return <RefreshCw className="h-3.5 w-3.5 text-purple-500" />;
+      case "EXPORT":
+        return <Download className="h-3.5 w-3.5 text-cyan-500" />;
+      default:
+        return <Clock className="h-3.5 w-3.5 text-slate-500" />;
     }
   };
 
-  const salesChartFormatted = salesChart.map(d => ({
+  const salesChartFormatted = salesChart.map((d) => ({
     ...d,
-    moisLabel: formatMonth(d.mois)
+    moisLabel: formatMonth(d.mois),
   }));
 
   return (
@@ -175,9 +203,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold">
-                {showStockValue ? formatCurrency(stats?.stockValue || 0) : "••••••••"}
-              </div>
+              <div className="text-2xl font-bold">{showStockValue ? formatCurrency(stats?.stockValue || 0) : "••••••••"}</div>
               <button
                 onClick={() => setShowStockValue(!showStockValue)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -196,9 +222,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-500">{stats?.lowStockCount || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              dont {stats?.outOfStockCount || 0} en rupture
-            </p>
+            <p className="text-xs text-muted-foreground">dont {stats?.outOfStockCount || 0} en rupture</p>
           </CardContent>
         </Card>
 
@@ -209,16 +233,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.monthlySales || 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              Aujourd'hui: {formatCurrency(stats?.todaySales || 0)}
-            </p>
+            <p className="text-xs text-muted-foreground">Aujourd'hui: {formatCurrency(stats?.todaySales || 0)}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row 1: Ventes mensuelles + Répartition stock */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      {/* Charts Row 1: Ventes mensuelles */}
+      <div className="grid gap-4">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -234,10 +256,7 @@ export default function Dashboard() {
                   <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value, name) => [
-                      formatCurrency(Number(value)),
-                      name === "ventes" ? "Ventes" : "Tendance"
-                    ]}
+                    formatter={(value, name) => [formatCurrency(Number(value)), name === "ventes" ? "Ventes" : "Tendance"]}
                     labelFormatter={(label) => `Mois: ${label}`}
                     contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
                   />
@@ -254,45 +273,7 @@ export default function Dashboard() {
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                Aucune donnée de ventes
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Répartition du stock</CardTitle>
-            <CardDescription>Valeur par catégorie</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stockOverview.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stockOverview}
-                    dataKey="valeur"
-                    nameKey="categorie"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ name, percent }) =>
-                      `${name} (${((percent || 0) * 100).toFixed(0)}%)`
-                    }
-                    labelLine={false}
-                  >
-                    {stockOverview.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                Aucune donnée
-              </div>
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune donnée de ventes</div>
             )}
           </CardContent>
         </Card>
@@ -311,16 +292,11 @@ export default function Dashboard() {
                 <BarChart data={topPieces} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
                   <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis
-                    dataKey="nom"
-                    type="category"
-                    width={120}
-                    tick={{ fontSize: 11 }}
-                  />
+                  <YAxis dataKey="nom" type="category" width={120} tick={{ fontSize: 11 }} />
                   <Tooltip
                     formatter={(value, name) => [
                       name === "quantite" ? `${value} unités` : formatCurrency(Number(value)),
-                      name === "quantite" ? "Quantité" : "Total"
+                      name === "quantite" ? "Quantité" : "Total",
                     ]}
                     contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
                   />
@@ -328,9 +304,7 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                Aucune vente récente
-              </div>
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune vente récente</div>
             )}
           </CardContent>
         </Card>
@@ -359,17 +333,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
-                <Link
-                  to="/activite"
-                  className="block text-center text-sm text-blue-600 hover:text-blue-800 mt-2"
-                >
+                <Link to="/activite" className="block text-center text-sm text-blue-600 hover:text-blue-800 mt-2">
                   Voir tout l'historique
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                Aucune activité
-              </div>
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune activité</div>
             )}
           </CardContent>
         </Card>
@@ -468,70 +437,34 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Row 4: Commandes + Pièces récentes */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Commandes en attente</CardTitle>
-            <CardDescription>{stats?.pendingOrders || 0} commande(s) fournisseur en cours</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentData?.commandes && recentData.commandes.length > 0 ? (
-                recentData.commandes
-                  .filter((c) => c.statut === "EN_ATTENTE" || c.statut === "CONFIRMEE")
-                  .slice(0, 5)
-                  .map((commande) => (
-                    <div key={commande.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{commande.numero}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {commande.fournisseur?.nom || "Fournisseur"}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold">{formatCurrency(commande.total)}</p>
-                        <Badge variant={commande.statut === "CONFIRMEE" ? "default" : "warning"}>
-                          {commande.statut === "CONFIRMEE" ? "Confirmée" : "En attente"}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Aucune commande en attente</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pièces récemment ajoutées</CardTitle>
-            <CardDescription>Les dernières pièces ajoutées au catalogue</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentData?.pieces && recentData.pieces.length > 0 ? (
-                recentData.pieces.map((piece) => (
-                  <Link
-                    key={piece.id}
-                    to={`/pieces/${piece.id}`}
-                    className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded -mx-2"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{piece.nom}</p>
-                      <p className="text-xs text-muted-foreground">{piece.reference}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{formatDate(piece.createdAt)}</p>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Aucune pièce</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Row 4: Pièces récentes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pièces récemment ajoutées</CardTitle>
+          <CardDescription>Les dernières pièces ajoutées au catalogue</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentData?.pieces && recentData.pieces.length > 0 ? (
+              recentData.pieces.map((piece) => (
+                <Link
+                  key={piece.id}
+                  to={`/pieces/${piece.id}`}
+                  className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded -mx-2"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{piece.nom}</p>
+                    <p className="text-xs text-muted-foreground">{piece.reference}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{formatDate(piece.createdAt)}</p>
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucune pièce</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

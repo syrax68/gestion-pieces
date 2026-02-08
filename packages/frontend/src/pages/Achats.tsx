@@ -38,10 +38,7 @@ export default function Achats() {
     try {
       setLoading(true);
       setError(null);
-      const [achatsData, piecesData] = await Promise.all([
-        achatsApi.getAll(),
-        piecesApi.getAll()
-      ]);
+      const [achatsData, piecesData] = await Promise.all([achatsApi.getAll(), piecesApi.getAll()]);
       setAchats(achatsData);
       setPieces(piecesData);
     } catch (err) {
@@ -60,7 +57,7 @@ export default function Achats() {
       pieceReference: "",
       quantite: 1,
       prixUnitaire: 0,
-      tva: 20,
+      tva: 0,
       total: 0,
     };
     setCart([...cart, newItem]);
@@ -110,7 +107,7 @@ export default function Achats() {
     try {
       setSaving(true);
       await achatsApi.create({
-        items: cart.map(item => ({
+        items: cart.map((item) => ({
           pieceId: item.pieceId,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
@@ -192,18 +189,12 @@ export default function Achats() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>{achat.numero}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {new Date(achat.dateAchat).toLocaleDateString("fr-FR")}
-                    </p>
-                    {achat.fournisseur && (
-                      <p className="text-sm text-muted-foreground">
-                        Fournisseur: {achat.fournisseur.nom}
-                      </p>
-                    )}
+                    <p className="text-sm text-muted-foreground mt-1">{new Date(achat.dateAchat).toLocaleDateString("fr-FR")}</p>
+                    {achat.fournisseur && <p className="text-sm text-muted-foreground">Fournisseur: {achat.fournisseur.nom}</p>}
                   </div>
                   <div className="flex items-center gap-4">
                     {getStatutBadge(achat.statut)}
-                    <p className="text-xl font-bold">{achat.total.toFixed(2)} Ar</p>
+                    <p className="text-xl font-bold">{achat.total.toFixed(2)} Fmg</p>
                   </div>
                 </div>
               </CardHeader>
@@ -217,9 +208,9 @@ export default function Achats() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium">
-                          {item.quantite} × {item.prixUnitaire.toFixed(2)} Ar
+                          {item.quantite} × {item.prixUnitaire.toFixed(2)} Fmg
                         </p>
-                        <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Ar</p>
+                        <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Fmg</p>
                       </div>
                     </div>
                   ))}
@@ -313,7 +304,7 @@ export default function Achats() {
 
             <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
               <span className="text-lg font-medium">Total:</span>
-              <span className="text-2xl font-bold">{calculateTotal().toFixed(2)} Ar</span>
+              <span className="text-2xl font-bold">{calculateTotal().toFixed(2)} Fmg</span>
             </div>
           </div>
 

@@ -162,12 +162,13 @@ async function main() {
   const excelPath = path.resolve(__dirname, '../../../Pieces Janvier.xlsx');
   const wb = XLSX.readFile(excelPath);
 
-  const sheetsToImport = ['ALOALO', 'ADECAT', 'YYMP', 'FAN MOTO'];
+  const sheetsToImport = ['ALOALO', 'ADECAT', 'YYMP', 'FAN MOTO', 'RONGXIN'];
   const prefixes: Record<string, string> = {
     'ALOALO': 'ALO',
     'ADECAT': 'ADC',
     'YYMP': 'YMP',
-    'FAN MOTO': 'FMT'
+    'FAN MOTO': 'FMT',
+    'RONGXIN': 'RGX'
   };
 
   let allPieces: PieceData[] = [];
@@ -186,7 +187,8 @@ async function main() {
     { code: 'ALO001', nom: 'ALOALO' },
     { code: 'ADC001', nom: 'ADECAT' },
     { code: 'YMP001', nom: 'YYMP' },
-    { code: 'FMT001', nom: 'FAN MOTO' }
+    { code: 'FMT001', nom: 'FAN MOTO' },
+    { code: 'RGX001', nom: 'RONGXIN' }
   ];
 
   for (const f of fournisseurData) {
@@ -309,7 +311,7 @@ async function main() {
         nom: pieceData.designation,
         prixVente,
         prixAchat,
-        tauxTVA: 20,
+        tauxTVA: 0,
         stock: pieceData.quantite,
         stockMin: 2,
         categorieId: categorie?.id || null,

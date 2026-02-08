@@ -1,18 +1,21 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
-import { authenticate } from "../middleware/auth.js";
-import { serializePiece, serializeFacture, serializeCommande } from "../utils/decimal.js";
+import { authenticate, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
+import { serializePiece, serializeFacture } from "../utils/decimal.js";
 import { handleRouteError } from "../utils/handleError.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 // Get dashboard statistics
-router.get("/stats", authenticate, async (_req, res) => {
+router.get("/stats", async (req, res) => {
   try {
-    const totalPieces = await prisma.piece.count({ where: { actif: true } });
+    const boutiqueId = (req as AuthRequest).boutiqueId;
+    const totalPieces = await prisma.piece.count({ where: { actif: true, boutiqueId } });
 
     const allPieces = await prisma.piece.findMany({
-      where: { actif: true },
+      where: { actif: true, boutiqueId },
       select: { stock: true, stockMin: true, prixVente: true, prixAchat: true },
     });
 
@@ -22,12 +25,12 @@ router.get("/stats", authenticate, async (_req, res) => {
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentMouvements = await prisma.mouvementStock.count({ where: { date: { gte: thirtyDaysAgo } } });
+    const recentMouvements = await prisma.mouvementStock.count({ where: { date: { gte: thirtyDaysAgo }, boutiqueId } });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayFactures = await prisma.facture.findMany({
-      where: { dateFacture: { gte: today }, statut: "PAYEE" },
+      where: { dateFacture: { gte: today }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
     });
     const todaySales = todayFactures.reduce((sum, f) => sum + Number(f.total), 0);
 
@@ -35,11 +38,9 @@ router.get("/stats", authenticate, async (_req, res) => {
     firstDayOfMonth.setDate(1);
     firstDayOfMonth.setHours(0, 0, 0, 0);
     const monthFactures = await prisma.facture.findMany({
-      where: { dateFacture: { gte: firstDayOfMonth }, statut: "PAYEE" },
+      where: { dateFacture: { gte: firstDayOfMonth }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
     });
     const monthlySales = monthFactures.reduce((sum, f) => sum + Number(f.total), 0);
-
-    const pendingOrders = await prisma.commande.count({ where: { statut: "EN_ATTENTE" } });
 
     res.json({
       totalPieces,
@@ -49,7 +50,6 @@ router.get("/stats", authenticate, async (_req, res) => {
       recentMouvements,
       todaySales: Math.round(todaySales * 100) / 100,
       monthlySales: Math.round(monthlySales * 100) / 100,
-      pendingOrders,
     });
   } catch (error) {
     handleRouteError(res, error, "la récupération des statistiques");
@@ -57,26 +57,25 @@ router.get("/stats", authenticate, async (_req, res) => {
 });
 
 // Get recent items
-router.get("/recent", authenticate, async (_req, res) => {
+router.get("/recent", async (req, res) => {
   try {
-    const [pieces, factures, commandes, mouvements] = await Promise.all([
+    const boutiqueId = (req as AuthRequest).boutiqueId;
+    const [pieces, factures, mouvements] = await Promise.all([
       prisma.piece.findMany({
         take: 5,
+        where: { boutiqueId },
         orderBy: { createdAt: "desc" },
         include: { marque: true, categorie: true, emplacement: true },
       }),
       prisma.facture.findMany({
         take: 5,
+        where: { boutiqueId },
         orderBy: { dateFacture: "desc" },
         include: { client: true },
       }),
-      prisma.commande.findMany({
-        take: 5,
-        orderBy: { dateCommande: "desc" },
-        include: { fournisseur: true },
-      }),
       prisma.mouvementStock.findMany({
         take: 10,
+        where: { boutiqueId },
         orderBy: { date: "desc" },
         include: {
           piece: { select: { nom: true, reference: true } },
@@ -88,7 +87,6 @@ router.get("/recent", authenticate, async (_req, res) => {
     res.json({
       pieces: pieces.map(serializePiece),
       factures: factures.map(serializeFacture),
-      commandes: commandes.map(serializeCommande),
       mouvements,
     });
   } catch (error) {
@@ -97,10 +95,11 @@ router.get("/recent", authenticate, async (_req, res) => {
 });
 
 // Get low stock items
-router.get("/low-stock", authenticate, async (_req, res) => {
+router.get("/low-stock", async (req, res) => {
   try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
     const pieces = await prisma.piece.findMany({
-      where: { actif: true },
+      where: { actif: true, boutiqueId },
       include: { marque: true, categorie: true, fournisseur: true, emplacement: true },
     });
 
@@ -116,8 +115,9 @@ router.get("/low-stock", authenticate, async (_req, res) => {
 });
 
 // Sales chart - monthly sales for the last 12 months
-router.get("/sales-chart", authenticate, async (_req, res) => {
+router.get("/sales-chart", async (req, res) => {
   try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
     const months = [];
     const now = new Date();
 
@@ -126,7 +126,7 @@ router.get("/sales-chart", authenticate, async (_req, res) => {
       const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
 
       const factures = await prisma.facture.findMany({
-        where: { dateFacture: { gte: start, lte: end }, statut: "PAYEE" },
+        where: { dateFacture: { gte: start, lte: end }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
       });
 
       const ventes = factures.reduce((sum, f) => sum + Number(f.total), 0);
@@ -145,14 +145,15 @@ router.get("/sales-chart", authenticate, async (_req, res) => {
 });
 
 // Top 10 best selling pieces (last 30 days)
-router.get("/top-pieces", authenticate, async (_req, res) => {
+router.get("/top-pieces", async (req, res) => {
   try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const factureItems = await prisma.factureItem.findMany({
       where: {
-        facture: { dateFacture: { gte: thirtyDaysAgo }, statut: "PAYEE" },
+        facture: { dateFacture: { gte: thirtyDaysAgo }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
         pieceId: { not: null },
       },
       include: { piece: { select: { nom: true, reference: true } } },
@@ -187,10 +188,11 @@ router.get("/top-pieces", authenticate, async (_req, res) => {
 });
 
 // Stock overview by category
-router.get("/stock-overview", authenticate, async (_req, res) => {
+router.get("/stock-overview", async (req, res) => {
   try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
     const pieces = await prisma.piece.findMany({
-      where: { actif: true },
+      where: { actif: true, boutiqueId },
       include: { categorie: true },
     });
 
@@ -220,10 +222,12 @@ router.get("/stock-overview", authenticate, async (_req, res) => {
 });
 
 // Activity summary (last 5 logs)
-router.get("/activity-summary", authenticate, async (_req, res) => {
+router.get("/activity-summary", async (req, res) => {
   try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
     const logs = await prisma.activityLog.findMany({
       take: 5,
+      where: { boutiqueId },
       orderBy: { createdAt: "desc" },
       include: { user: { select: { nom: true, prenom: true } } },
     });

@@ -2,12 +2,15 @@ import { Router, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../index.js";
 import { authenticate, isVendeurOrAdmin, isAdmin, AuthRequest } from "../middleware/auth.js";
+import { injectBoutique } from "../middleware/tenant.js";
 import { logActivity } from "../lib/activityLog.js";
 import { serializePiece, serializeHistoriquePrix } from "../utils/decimal.js";
 import { handleRouteError } from "../utils/handleError.js";
+import { ensureBoutique } from "../utils/ensureBoutique.js";
 import { adjustStock } from "../services/stockService.js";
 
 const router = Router();
+router.use(authenticate, injectBoutique);
 
 const pieceSchema = z.object({
   reference: z.string().min(1, "Référence requise"),
@@ -16,7 +19,7 @@ const pieceSchema = z.object({
   description: z.string().optional().nullable(),
   prixVente: z.number().positive("Le prix de vente doit être positif"),
   prixAchat: z.number().positive().optional().nullable(),
-  tauxTVA: z.number().min(0).max(100).default(20),
+  tauxTVA: z.number().min(0).max(100).default(0),
   stock: z.number().int().min(0).default(0),
   stockMin: z.number().int().min(0).default(0),
   stockMax: z.number().int().min(0).optional().nullable(),
@@ -41,10 +44,11 @@ const pieceIncludes = {
 } as const;
 
 // Get all pieces
-router.get("/", authenticate, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { search, categorie, marque, stockBas, actif } = req.query;
     const where: Record<string, unknown> = {};
+    where.boutiqueId = (req as AuthRequest).boutiqueId;
 
     if (search) {
       where.OR = [
@@ -72,7 +76,7 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 // Get piece by ID
-router.get("/:id", authenticate, async (req, res) => {
+router.get("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const piece = await prisma.piece.findUnique({
       where: { id: req.params.id },
@@ -95,14 +99,12 @@ router.get("/:id", authenticate, async (req, res) => {
       },
     });
 
-    if (!piece) {
-      return res.status(404).json({ error: "Pièce non trouvée" });
-    }
+    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
 
     res.json({
-      ...serializePiece(piece),
-      historiquePrix: piece.historiquePrix.map(serializeHistoriquePrix),
-      fournisseurs: piece.fournisseurs.map((f) => ({
+      ...serializePiece(piece!),
+      historiquePrix: piece!.historiquePrix.map(serializeHistoriquePrix),
+      fournisseurs: piece!.fournisseurs.map((f) => ({
         ...f,
         prixAchat: Number(f.prixAchat),
       })),
@@ -113,7 +115,7 @@ router.get("/:id", authenticate, async (req, res) => {
 });
 
 // Create piece
-router.post("/", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = pieceSchema.parse(req.body);
 
@@ -130,7 +132,7 @@ router.post("/", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: R
     }
 
     const piece = await prisma.piece.create({
-      data,
+      data: { ...data, boutiqueId: req.boutiqueId! },
       include: pieceIncludes,
     });
 
@@ -143,10 +145,14 @@ router.post("/", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: R
 });
 
 // Update piece
-router.put("/:id", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = pieceSchema.partial().parse(req.body);
+
+    // Verify ownership
+    const existing = await prisma.piece.findUnique({ where: { id } });
+    if (!(await ensureBoutique(existing, req, res, "Pièce"))) return;
 
     if (data.reference) {
       const existing = await prisma.piece.findFirst({ where: { reference: data.reference, NOT: { id } } });
@@ -187,10 +193,11 @@ router.put("/:id", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res:
 });
 
 // Delete piece (admin only)
-router.delete("/:id", authenticate, isAdmin, async (req: AuthRequest, res: Response) => {
+router.delete("/:id", isAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const piece = await prisma.piece.findUnique({ where: { id } });
+    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
     await prisma.piece.delete({ where: { id } });
     await logActivity(req.user!.userId, "DELETE", "PIECE", id, `Suppression de la pièce "${piece?.nom}"`);
     res.json({ message: "Pièce supprimée" });
@@ -200,10 +207,14 @@ router.delete("/:id", authenticate, isAdmin, async (req: AuthRequest, res: Respo
 });
 
 // Adjust stock
-router.post("/:id/stock", authenticate, isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+router.post("/:id/stock", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { type, quantite, motif, reference } = req.body;
+
+    // Verify ownership
+    const piece = await prisma.piece.findUnique({ where: { id } });
+    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
 
     if (!["ENTREE", "SORTIE", "AJUSTEMENT", "INVENTAIRE", "RETOUR", "TRANSFERT"].includes(type)) {
       return res.status(400).json({ error: "Type de mouvement invalide" });
@@ -244,10 +255,14 @@ router.post("/:id/stock", authenticate, isVendeurOrAdmin, async (req: AuthReques
 });
 
 // Add compatible model to piece
-router.post("/:id/modeles", authenticate, isVendeurOrAdmin, async (req, res) => {
+router.post("/:id/modeles", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { modeleId, notes } = req.body;
+
+    // Verify ownership
+    const piece = await prisma.piece.findUnique({ where: { id } });
+    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
 
     if (!modeleId) {
       return res.status(400).json({ error: "modeleId requis" });
@@ -264,10 +279,124 @@ router.post("/:id/modeles", authenticate, isVendeurOrAdmin, async (req, res) => 
   }
 });
 
+// Replace piece (transfer all references from old piece to new piece)
+router.post("/:id/remplacer", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id: oldPieceId } = req.params;
+    const { newPieceId } = req.body;
+
+    if (!newPieceId) {
+      return res.status(400).json({ error: "newPieceId requis" });
+    }
+    if (oldPieceId === newPieceId) {
+      return res.status(400).json({ error: "La pièce de remplacement doit être différente" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const oldPiece = await tx.piece.findUnique({ where: { id: oldPieceId }, include: { fournisseur: true } });
+      if (!oldPiece || oldPiece.boutiqueId !== req.boutiqueId) throw new Error("Ancienne pièce non trouvée");
+
+      const newPiece = await tx.piece.findUnique({ where: { id: newPieceId }, include: { fournisseur: true } });
+      if (!newPiece || newPiece.boutiqueId !== req.boutiqueId) throw new Error("Nouvelle pièce non trouvée");
+
+      // 1. Get facture items that will be transferred (to update prices and recalculate)
+      const factureItems = await tx.factureItem.findMany({ where: { pieceId: oldPieceId } });
+
+      // 2. Transfer all references from old to new
+      const [fiCount, aiCount, diCount, aviCount, mvtCount, invCount] = await Promise.all([
+        tx.factureItem.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+        tx.achatItem.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+        tx.devisItem.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+        tx.avoirItem.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+        tx.mouvementStock.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+        tx.inventaireItem.updateMany({ where: { pieceId: oldPieceId }, data: { pieceId: newPieceId } }),
+      ]);
+
+      // 3. Update prices in transferred facture items and collect affected factures
+      const affectedFactureIds = new Set<string>();
+      let totalQteVendue = 0;
+
+      for (const item of factureItems) {
+        const newTotal = Number(newPiece.prixVente) * item.quantite;
+        await tx.factureItem.update({
+          where: { id: item.id },
+          data: {
+            prixUnitaire: Number(newPiece.prixVente),
+            total: newTotal,
+            designation: newPiece.nom,
+          },
+        });
+        affectedFactureIds.add(item.factureId);
+        totalQteVendue += item.quantite;
+      }
+
+      // 4. Recalculate totals for each affected facture
+      for (const factureId of affectedFactureIds) {
+        const items = await tx.factureItem.findMany({ where: { factureId } });
+        const sousTotal = items.reduce((sum, item) => sum + Number(item.total), 0);
+        const facture = await tx.facture.findUnique({ where: { id: factureId } });
+        const tvaPourcent = facture ? Number(facture.tva) / (Number(facture.sousTotal) || 1) : 0;
+        const tva = Math.round(sousTotal * tvaPourcent);
+        const total = sousTotal + tva;
+        await tx.facture.update({
+          where: { id: factureId },
+          data: { sousTotal, tva, total },
+        });
+      }
+
+      // 5. Decrement new piece stock for sold quantities
+      if (totalQteVendue > 0) {
+        await tx.piece.update({
+          where: { id: newPieceId },
+          data: { stock: { decrement: totalQteVendue } },
+        });
+      }
+
+      // 6. Delete old piece (cascade will handle images, historiquePrix, pieceFournisseur, pieceModeleVehicule)
+      await tx.piece.delete({ where: { id: oldPieceId } });
+
+      return {
+        oldPiece: { reference: oldPiece.reference, nom: oldPiece.nom, fournisseur: oldPiece.fournisseur?.nom },
+        newPiece: { reference: newPiece.reference, nom: newPiece.nom, fournisseur: newPiece.fournisseur?.nom },
+        stats: {
+          factureItems: fiCount.count,
+          achatItems: aiCount.count,
+          devisItems: diCount.count,
+          avoirItems: aviCount.count,
+          mouvements: mvtCount.count,
+          inventaireItems: invCount.count,
+          facturesRecalculees: affectedFactureIds.size,
+          stockDecremente: totalQteVendue,
+        },
+      };
+    });
+
+    await logActivity(
+      req.user!.userId,
+      "UPDATE",
+      "PIECE",
+      newPieceId,
+      `Remplacement de "${result.oldPiece.nom}" (${result.oldPiece.reference}) par "${result.newPiece.nom}" (${result.newPiece.reference})`,
+    );
+
+    res.json({
+      message: `Pièce "${result.oldPiece.nom}" remplacée par "${result.newPiece.nom}"`,
+      ...result,
+    });
+  } catch (error) {
+    handleRouteError(res, error, "le remplacement de la pièce");
+  }
+});
+
 // Remove compatible model from piece
-router.delete("/:id/modeles/:modeleId", authenticate, isVendeurOrAdmin, async (req, res) => {
+router.delete("/:id/modeles/:modeleId", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id, modeleId } = req.params;
+
+    // Verify ownership
+    const piece = await prisma.piece.findUnique({ where: { id } });
+    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
+
     await prisma.pieceModeleVehicule.delete({
       where: { pieceId_modeleId: { pieceId: id, modeleId } },
     });
