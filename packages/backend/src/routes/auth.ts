@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { prisma } from "../index.js";
-import { authenticate, isAdmin, AuthRequest } from "../middleware/auth.js";
+import { authenticate, isAdminOrSuperAdmin, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -17,7 +17,7 @@ const registerSchema = z.object({
   password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
   nom: z.string().min(1, "Nom requis"),
   prenom: z.string().optional(),
-  role: z.enum(["ADMIN", "VENDEUR", "LECTEUR"]).optional(),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "VENDEUR", "LECTEUR"]).optional(),
   boutiqueId: z.string().optional(),
 });
 
@@ -74,7 +74,7 @@ router.post("/login", async (req, res) => {
 });
 
 // Register (admin only)
-router.post("/register", authenticate, isAdmin, async (req: AuthRequest, res: Response) => {
+router.post("/register", authenticate, isAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = registerSchema.parse(req.body);
 
@@ -153,17 +153,20 @@ router.get("/me", authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // Get all users (admin only)
-router.get("/users", authenticate, isAdmin, async (req, res) => {
+router.get("/users", authenticate, isAdminOrSuperAdmin, async (req, res) => {
   try {
     const authReq = req as AuthRequest;
     // Get admin's boutiqueId to filter users
     const adminUser = await prisma.user.findUnique({
       where: { id: authReq.user!.userId },
-      select: { boutiqueId: true },
+      select: { boutiqueId: true, role: true },
     });
 
+    // SUPER_ADMIN sees all users, ADMIN sees only their boutique
+    const whereClause = adminUser?.role === "SUPER_ADMIN" ? {} : { boutiqueId: adminUser?.boutiqueId };
+
     const users = await prisma.user.findMany({
-      where: { boutiqueId: adminUser?.boutiqueId },
+      where: whereClause,
       select: {
         id: true,
         email: true,
@@ -186,22 +189,22 @@ router.get("/users", authenticate, isAdmin, async (req, res) => {
 });
 
 // Update user (admin only)
-router.put("/users/:id", authenticate, isAdmin, async (req, res) => {
+router.put("/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const authReq = req as AuthRequest;
 
-    // Verify user belongs to admin's boutique
+    // Verify user belongs to admin's boutique (SUPER_ADMIN bypasses)
     const targetUser = await prisma.user.findUnique({ where: { id }, select: { boutiqueId: true } });
     if (!targetUser) {
       return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
-    const adminUser = await prisma.user.findUnique({ where: { id: authReq.user!.userId }, select: { boutiqueId: true } });
-    if (targetUser.boutiqueId !== adminUser?.boutiqueId) {
+    const currentAdmin = await prisma.user.findUnique({ where: { id: authReq.user!.userId }, select: { boutiqueId: true, role: true } });
+    if (currentAdmin?.role !== "SUPER_ADMIN" && targetUser.boutiqueId !== currentAdmin?.boutiqueId) {
       return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
 
-    const { nom, prenom, role, password } = req.body;
+    const { nom, prenom, role, password, boutiqueId: newBoutiqueId } = req.body;
 
     const updateData: Record<string, unknown> = {};
     if (nom) updateData.nom = nom;
@@ -209,6 +212,9 @@ router.put("/users/:id", authenticate, isAdmin, async (req, res) => {
     if (role) updateData.role = role;
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
+    }
+    if (newBoutiqueId !== undefined && currentAdmin?.role === "SUPER_ADMIN") {
+      updateData.boutiqueId = newBoutiqueId;
     }
 
     const user = await prisma.user.update({
@@ -234,7 +240,7 @@ router.put("/users/:id", authenticate, isAdmin, async (req, res) => {
 });
 
 // Delete user (admin only)
-router.delete("/users/:id", authenticate, isAdmin, async (req: AuthRequest, res: Response) => {
+router.delete("/users/:id", authenticate, isAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -243,13 +249,13 @@ router.delete("/users/:id", authenticate, isAdmin, async (req: AuthRequest, res:
       return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre compte" });
     }
 
-    // Verify user belongs to admin's boutique
+    // Verify user belongs to admin's boutique (SUPER_ADMIN bypasses)
     const targetUser = await prisma.user.findUnique({ where: { id }, select: { boutiqueId: true } });
     if (!targetUser) {
       return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
-    const adminUser = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { boutiqueId: true } });
-    if (targetUser.boutiqueId !== adminUser?.boutiqueId) {
+    const currentAdmin = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { boutiqueId: true, role: true } });
+    if (currentAdmin?.role !== "SUPER_ADMIN" && targetUser.boutiqueId !== currentAdmin?.boutiqueId) {
       return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
 

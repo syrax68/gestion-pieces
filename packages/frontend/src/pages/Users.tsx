@@ -26,7 +26,7 @@ export default function Users() {
     password: '',
     nom: '',
     prenom: '',
-    role: 'VENDEUR' as 'ADMIN' | 'VENDEUR' | 'LECTEUR'
+    role: 'VENDEUR' as 'SUPER_ADMIN' | 'ADMIN' | 'VENDEUR' | 'LECTEUR'
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -116,6 +116,8 @@ export default function Users() {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
+      case 'SUPER_ADMIN':
+        return <Badge variant="destructive" className="flex items-center gap-1"><Shield className="h-3 w-3" /> Super Admin</Badge>;
       case 'ADMIN':
         return <Badge variant="destructive" className="flex items-center gap-1"><Shield className="h-3 w-3" /> Admin</Badge>;
       case 'VENDEUR':
@@ -251,9 +253,10 @@ export default function Users() {
               <Label htmlFor="role">Rôle</Label>
               <Select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as 'ADMIN' | 'VENDEUR' | 'LECTEUR' })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as 'SUPER_ADMIN' | 'ADMIN' | 'VENDEUR' | 'LECTEUR' })}
               >
-                <option value="ADMIN">Admin - Accès complet</option>
+                <option value="SUPER_ADMIN">Super Admin - Gestion multi-boutiques</option>
+                <option value="ADMIN">Admin - Accès complet boutique</option>
                 <option value="VENDEUR">Vendeur - Création et modification</option>
                 <option value="LECTEUR">Lecteur - Lecture seule</option>
               </Select>

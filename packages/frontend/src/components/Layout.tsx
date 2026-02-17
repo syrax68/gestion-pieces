@@ -19,14 +19,18 @@ import {
   Clock,
   Contact,
   Truck,
+  Store,
+  Building2,
 } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user, boutique, logout, isAdmin } = useAuth();
+  const { user, boutique, logout, isAdmin, isSuperAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const getRoleIcon = () => {
     switch (user?.role) {
+      case "SUPER_ADMIN":
+        return <Shield className="h-3 w-3" />;
       case "ADMIN":
         return <Shield className="h-3 w-3" />;
       case "VENDEUR":
@@ -40,6 +44,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const getRoleVariant = (): "default" | "secondary" | "destructive" => {
     switch (user?.role) {
+      case "SUPER_ADMIN":
+        return "destructive";
       case "ADMIN":
         return "destructive";
       case "VENDEUR":
@@ -51,61 +57,86 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navLinks = (
     <>
-      <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Home className="mr-2 h-4 w-4" />
-          Tableau de bord
-        </Button>
-      </Link>
-      <Link to="/pieces" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Package className="mr-2 h-4 w-4" />
-          Pièces
-        </Button>
-      </Link>
-      <Link to="/stock" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Warehouse className="mr-2 h-4 w-4" />
-          Stock
-        </Button>
-      </Link>
-      <Link to="/achats" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <ShoppingCart className="mr-2 h-4 w-4" />
-          Achats
-        </Button>
-      </Link>
-      <Link to="/factures" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <FileText className="mr-2 h-4 w-4" />
-          Factures
-        </Button>
-      </Link>
-      <Link to="/clients" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Contact className="mr-2 h-4 w-4" />
-          Clients
-        </Button>
-      </Link>
-      <Link to="/fournisseurs" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Truck className="mr-2 h-4 w-4" />
-          Fournisseurs
-        </Button>
-      </Link>
-      <Link to="/activite" onClick={() => setMobileMenuOpen(false)}>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
-          <Clock className="mr-2 h-4 w-4" />
-          Activité
-        </Button>
-      </Link>
-      {isAdmin && (
-        <Link to="/users" onClick={() => setMobileMenuOpen(false)}>
-          <Button variant="ghost" size="sm" className="w-full justify-start">
-            <Users className="mr-2 h-4 w-4" />
-            Utilisateurs
-          </Button>
-        </Link>
+      {isSuperAdmin ? (
+        <>
+          <Link to="/multi-boutiques" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Store className="mr-2 h-4 w-4" />
+              Dashboard Multi-Boutiques
+            </Button>
+          </Link>
+          <Link to="/boutiques" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Building2 className="mr-2 h-4 w-4" />
+              Gestion des Boutiques
+            </Button>
+          </Link>
+          <Link to="/users" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Users className="mr-2 h-4 w-4" />
+              Utilisateurs
+            </Button>
+          </Link>
+        </>
+      ) : (
+        <>
+          <Link to="/" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Home className="mr-2 h-4 w-4" />
+              Tableau de bord
+            </Button>
+          </Link>
+          <Link to="/pieces" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Package className="mr-2 h-4 w-4" />
+              Pièces
+            </Button>
+          </Link>
+          <Link to="/stock" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Warehouse className="mr-2 h-4 w-4" />
+              Stock
+            </Button>
+          </Link>
+          <Link to="/achats" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Achats
+            </Button>
+          </Link>
+          <Link to="/factures" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <FileText className="mr-2 h-4 w-4" />
+              Factures
+            </Button>
+          </Link>
+          <Link to="/clients" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Contact className="mr-2 h-4 w-4" />
+              Clients
+            </Button>
+          </Link>
+          <Link to="/fournisseurs" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Truck className="mr-2 h-4 w-4" />
+              Fournisseurs
+            </Button>
+          </Link>
+          <Link to="/activite" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Clock className="mr-2 h-4 w-4" />
+              Activité
+            </Button>
+          </Link>
+          {isAdmin && (
+            <Link to="/users" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="ghost" size="sm" className="w-full justify-start">
+                <Users className="mr-2 h-4 w-4" />
+                Utilisateurs
+              </Button>
+            </Link>
+          )}
+        </>
       )}
     </>
   );
@@ -116,10 +147,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4">
           {/* Ligne titre + actions */}
           <div className="flex items-center justify-between py-3">
-            <Link to="/" className="flex items-center space-x-2">
+            <Link to={isSuperAdmin ? "/multi-boutiques" : "/"} className="flex items-center space-x-2">
               <Package className="h-6 w-6" />
-              <span className="text-xl font-bold hidden sm:inline">{boutique?.nom || "Gestion Pièces Moto"}</span>
-              <span className="text-xl font-bold sm:hidden">GPM</span>
+              <span className="text-xl font-bold hidden sm:inline">
+                {isSuperAdmin ? "Gestion Multi-Boutiques" : boutique?.nom || "Gestion Pièces Moto"}
+              </span>
+              <span className="text-xl font-bold sm:hidden">{isSuperAdmin ? "GMB" : "GPM"}</span>
             </Link>
 
             <div className="flex items-center space-x-2">

@@ -26,18 +26,18 @@ async function main() {
   const adminPassword = await bcrypt.hash("admin123", 10);
   const admin = await prisma.user.upsert({
     where: { email: "admin@example.com" },
-    update: { boutiqueId: boutique.id },
+    update: { boutiqueId: null }, // Super admin n'a pas de boutique
     create: {
       email: "admin@example.com",
       password: adminPassword,
       nom: "Admin",
       prenom: "System",
-      role: "ADMIN",
+      role: "SUPER_ADMIN",
       actif: true,
-      boutiqueId: boutique.id,
+      boutiqueId: null, // Super admin gère toutes les boutiques
     },
   });
-  console.log("Created admin user:", admin.email);
+  console.log("Created super admin user:", admin.email);
 
   const vendeurPassword = await bcrypt.hash("vendeur123", 10);
   const vendeur = await prisma.user.upsert({
@@ -692,7 +692,7 @@ async function main() {
   console.log("Seeding completed successfully!");
   console.log("========================================\n");
   console.log("Credentials:");
-  console.log("  Admin:   admin@example.com / admin123");
+  console.log("  Super Admin: admin@example.com / admin123");
   console.log("  Vendeur: vendeur@example.com / vendeur123");
   console.log("  Lecteur: lecteur@example.com / lecteur123");
   console.log("\n");

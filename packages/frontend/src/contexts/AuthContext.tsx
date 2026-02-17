@@ -8,6 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  isSuperAdmin: boolean;
   isAdmin: boolean;
   isVendeur: boolean;
   canEdit: boolean;
@@ -28,7 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .me()
         .then((u) => {
           setUser(u);
-          if (u.boutique) setBoutique(u.boutique);
+          // Super admin n'a pas de boutique
+          if (u.role !== "SUPER_ADMIN" && u.boutique) {
+            setBoutique(u.boutique);
+          }
         })
         .catch(() => {
           localStorage.removeItem("token");
@@ -43,7 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.login(email, password);
     localStorage.setItem("token", response.token);
     setUser(response.user);
-    if (response.user.boutique) setBoutique(response.user.boutique);
+    // Super admin n'a pas de boutique
+    if (response.user.role !== "SUPER_ADMIN" && response.user.boutique) {
+      setBoutique(response.user.boutique);
+    }
   };
 
   const logout = () => {
@@ -52,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBoutique(null);
   };
 
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isAdmin = user?.role === "ADMIN";
   const isVendeur = user?.role === "VENDEUR";
   const canEdit = isAdmin || isVendeur;
@@ -66,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        isSuperAdmin,
         isAdmin,
         isVendeur,
         canEdit,

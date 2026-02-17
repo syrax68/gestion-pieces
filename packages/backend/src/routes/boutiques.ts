@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../index.js";
-import { authenticate, isAdmin, AuthRequest } from "../middleware/auth.js";
+import { authenticate, isSuperAdmin, AuthRequest } from "../middleware/auth.js";
 import { handleRouteError } from "../utils/handleError.js";
 
 const router = Router();
@@ -17,7 +17,7 @@ const boutiqueSchema = z.object({
 });
 
 // Get all boutiques (admin only)
-router.get("/", authenticate, isAdmin, async (_req, res) => {
+router.get("/", authenticate, isSuperAdmin, async (_req, res) => {
   try {
     const boutiques = await prisma.boutique.findMany({
       include: {
@@ -54,7 +54,7 @@ router.get("/:id", authenticate, async (req, res) => {
 });
 
 // Create boutique (admin only)
-router.post("/", authenticate, isAdmin, async (req: AuthRequest, res: Response) => {
+router.post("/", authenticate, isSuperAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = boutiqueSchema.parse(req.body);
     const boutique = await prisma.boutique.create({ data });
@@ -65,7 +65,7 @@ router.post("/", authenticate, isAdmin, async (req: AuthRequest, res: Response) 
 });
 
 // Update boutique (admin only)
-router.put("/:id", authenticate, isAdmin, async (req, res) => {
+router.put("/:id", authenticate, isSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const data = boutiqueSchema.partial().parse(req.body);
@@ -77,7 +77,7 @@ router.put("/:id", authenticate, isAdmin, async (req, res) => {
 });
 
 // Delete boutique (admin only)
-router.delete("/:id", authenticate, isAdmin, async (req, res) => {
+router.delete("/:id", authenticate, isSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     // Check if boutique has users

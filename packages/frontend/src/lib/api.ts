@@ -77,7 +77,7 @@ export interface User {
   nom: string;
   prenom?: string;
   telephone?: string;
-  role: "ADMIN" | "VENDEUR" | "LECTEUR";
+  role: "SUPER_ADMIN" | "ADMIN" | "VENDEUR" | "LECTEUR";
   actif: boolean;
   boutiqueId?: string;
   boutique?: Boutique;
@@ -422,6 +422,29 @@ export interface StockOverviewData {
   count: number;
 }
 
+export interface BoutiqueStats {
+  id: string;
+  nom: string;
+  ville?: string;
+  todaySales: number;
+  monthlySales: number;
+  stockValue: number;
+  totalPieces: number;
+  facturesCount: number;
+  salesChart: SalesChartData[];
+}
+
+export interface MultiBoutiqueData {
+  boutiques: BoutiqueStats[];
+  totals: {
+    todaySales: number;
+    monthlySales: number;
+    stockValue: number;
+    totalPieces: number;
+    facturesCount: number;
+  };
+}
+
 // API endpoints
 export const authApi = {
   login: (email: string, password: string) => api.post<LoginResponse>("/auth/login", { email, password }),
@@ -566,6 +589,7 @@ export const dashboardApi = {
   getTopPieces: () => api.get<TopPieceData[]>("/dashboard/top-pieces"),
   getStockOverview: () => api.get<StockOverviewData[]>("/dashboard/stock-overview"),
   getActivitySummary: () => api.get<ActivityLog[]>("/dashboard/activity-summary"),
+  getMultiBoutique: () => api.get<MultiBoutiqueData>("/dashboard/multi-boutique"),
 };
 
 export const activityApi = {

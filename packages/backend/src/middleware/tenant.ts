@@ -5,11 +5,18 @@ import { AuthRequest } from "./auth.js";
 /**
  * Middleware tenant : injecte le boutiqueId de l'utilisateur connecté dans req.
  * Doit être utilisé APRÈS authenticate.
+ * Les SUPER_ADMIN n'ont pas de boutique assignée (gèrent toutes les boutiques).
  */
 export const injectBoutique = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Non authentifié" });
+    }
+
+    // SUPER_ADMIN n'a pas de boutique spécifique
+    if (req.user.role === "SUPER_ADMIN") {
+      req.boutiqueId = undefined;
+      return next();
     }
 
     const user = await prisma.user.findUnique({

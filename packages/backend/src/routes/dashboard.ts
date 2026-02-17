@@ -1,15 +1,110 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
-import { authenticate, AuthRequest } from "../middleware/auth.js";
+import { authenticate, AuthRequest, requireNonSuperAdmin } from "../middleware/auth.js";
 import { injectBoutique } from "../middleware/tenant.js";
 import { serializePiece, serializeFacture } from "../utils/decimal.js";
 import { handleRouteError } from "../utils/handleError.js";
 
 const router = Router();
-router.use(authenticate, injectBoutique);
+
+// Multi-boutique dashboard (super admin only - DOIT être défini AVANT operationalRouter)
+router.get("/multi-boutique", authenticate, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    if (authReq.user?.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ error: "Accès réservé au super administrateur" });
+    }
+
+    const boutiques = await prisma.boutique.findMany({
+      where: { actif: true },
+      select: { id: true, nom: true, ville: true },
+    });
+
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const firstDayOfMonth = new Date();
+    firstDayOfMonth.setDate(1);
+    firstDayOfMonth.setHours(0, 0, 0, 0);
+
+    const statutsValides = ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] as const;
+
+    const result = await Promise.all(
+      boutiques.map(async (boutique) => {
+        const bId = boutique.id;
+
+        // Stats de base
+        const [totalPieces, todayFactures, monthFactures, allPieces] = await Promise.all([
+          prisma.piece.count({ where: { actif: true, boutiqueId: bId } }),
+          prisma.facture.findMany({
+            where: { dateFacture: { gte: today }, statut: { in: [...statutsValides] }, boutiqueId: bId },
+          }),
+          prisma.facture.findMany({
+            where: { dateFacture: { gte: firstDayOfMonth }, statut: { in: [...statutsValides] }, boutiqueId: bId },
+          }),
+          prisma.piece.findMany({
+            where: { actif: true, boutiqueId: bId },
+            select: { stock: true, prixVente: true, prixAchat: true },
+          }),
+        ]);
+
+        const todaySales = todayFactures.reduce((sum, f) => sum + Number(f.total), 0);
+        const monthlySales = monthFactures.reduce((sum, f) => sum + Number(f.total), 0);
+        const stockValue = allPieces.reduce((sum, p) => sum + p.stock * Number(p.prixAchat || p.prixVente), 0);
+        const facturesCount = monthFactures.length;
+
+        // Ventes 12 derniers mois
+        const salesChart = [];
+        for (let i = 11; i >= 0; i--) {
+          const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+          const factures = await prisma.facture.findMany({
+            where: { dateFacture: { gte: start, lte: end }, statut: { in: [...statutsValides] }, boutiqueId: bId },
+          });
+
+          salesChart.push({
+            mois: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+            ventes: Math.round(factures.reduce((sum, f) => sum + Number(f.total), 0)),
+            count: factures.length,
+          });
+        }
+
+        return {
+          id: boutique.id,
+          nom: boutique.nom,
+          ville: boutique.ville,
+          todaySales: Math.round(todaySales * 100) / 100,
+          monthlySales: Math.round(monthlySales * 100) / 100,
+          stockValue: Math.round(stockValue * 100) / 100,
+          totalPieces,
+          facturesCount,
+          salesChart,
+        };
+      }),
+    );
+
+    // Totaux globaux
+    const totals = {
+      todaySales: Math.round(result.reduce((sum, b) => sum + b.todaySales, 0) * 100) / 100,
+      monthlySales: Math.round(result.reduce((sum, b) => sum + b.monthlySales, 0) * 100) / 100,
+      stockValue: Math.round(result.reduce((sum, b) => sum + b.stockValue, 0) * 100) / 100,
+      totalPieces: result.reduce((sum, b) => sum + b.totalPieces, 0),
+      facturesCount: result.reduce((sum, b) => sum + b.facturesCount, 0),
+    };
+
+    res.json({ boutiques: result, totals });
+  } catch (error) {
+    handleRouteError(res, error, "la récupération des statistiques multi-boutique");
+  }
+});
+
+// Routes opérationnelles (bloquées pour super admin)
+const operationalRouter = Router();
+operationalRouter.use(authenticate, injectBoutique, requireNonSuperAdmin);
 
 // Get dashboard statistics
-router.get("/stats", async (req, res) => {
+operationalRouter.get("/stats", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const totalPieces = await prisma.piece.count({ where: { actif: true, boutiqueId } });
@@ -57,7 +152,7 @@ router.get("/stats", async (req, res) => {
 });
 
 // Get recent items
-router.get("/recent", async (req, res) => {
+operationalRouter.get("/recent", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const [pieces, factures, mouvements] = await Promise.all([
@@ -95,7 +190,7 @@ router.get("/recent", async (req, res) => {
 });
 
 // Get low stock items
-router.get("/low-stock", async (req, res) => {
+operationalRouter.get("/low-stock", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const pieces = await prisma.piece.findMany({
@@ -115,7 +210,7 @@ router.get("/low-stock", async (req, res) => {
 });
 
 // Sales chart - monthly sales for the last 12 months
-router.get("/sales-chart", async (req, res) => {
+operationalRouter.get("/sales-chart", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const months = [];
@@ -145,7 +240,7 @@ router.get("/sales-chart", async (req, res) => {
 });
 
 // Top 10 best selling pieces (last 30 days)
-router.get("/top-pieces", async (req, res) => {
+operationalRouter.get("/top-pieces", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const thirtyDaysAgo = new Date();
@@ -188,7 +283,7 @@ router.get("/top-pieces", async (req, res) => {
 });
 
 // Stock overview by category
-router.get("/stock-overview", async (req, res) => {
+operationalRouter.get("/stock-overview", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const pieces = await prisma.piece.findMany({
@@ -222,7 +317,7 @@ router.get("/stock-overview", async (req, res) => {
 });
 
 // Activity summary (last 5 logs)
-router.get("/activity-summary", async (req, res) => {
+operationalRouter.get("/activity-summary", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const logs = await prisma.activityLog.findMany({
@@ -236,5 +331,8 @@ router.get("/activity-summary", async (req, res) => {
     handleRouteError(res, error, "la récupération de l'activité");
   }
 });
+
+// Monter les routes opérationnelles
+router.use(operationalRouter);
 
 export default router;

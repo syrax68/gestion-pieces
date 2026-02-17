@@ -80,6 +80,27 @@ export const requireRole = (...roles: Role[]) => {
 };
 
 // Shorthand middlewares
+export const isSuperAdmin = requireRole(Role.SUPER_ADMIN);
 export const isAdmin = requireRole(Role.ADMIN);
+export const isAdminOrSuperAdmin = requireRole(Role.SUPER_ADMIN, Role.ADMIN);
 export const isVendeurOrAdmin = requireRole(Role.ADMIN, Role.VENDEUR);
 export const isAuthenticated = authenticate;
+
+/**
+ * Middleware qui bloque les super admins (pour les routes opérationnelles)
+ * Les super admins ne doivent accéder qu'aux routes multi-boutiques et gestion boutiques
+ */
+export const requireNonSuperAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Non authentifié" });
+  }
+
+  if (req.user.role === Role.SUPER_ADMIN) {
+    return res.status(403).json({
+      error: "Accès refusé",
+      message: "Les super administrateurs ne peuvent pas accéder aux opérations spécifiques d'une boutique",
+    });
+  }
+
+  next();
+};

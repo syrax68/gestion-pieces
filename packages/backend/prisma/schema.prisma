@@ -49,6 +49,7 @@ model Boutique {
 // ============================================
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   VENDEUR
   LECTEUR
