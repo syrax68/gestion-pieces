@@ -152,6 +152,80 @@ router.get("/me", authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Change password (authenticated user)
+router.post("/change-password", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const schema = z.object({
+      currentPassword: z.string().min(1, "Mot de passe actuel requis"),
+      newPassword: z.string().min(6, "Le nouveau mot de passe doit contenir au moins 6 caractères"),
+    });
+    const { currentPassword, newPassword } = schema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return res.status(400).json({ error: "Mot de passe actuel incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ message: "Mot de passe modifié avec succès" });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error("Change password error:", error);
+    res.status(500).json({ error: "Erreur lors du changement de mot de passe" });
+  }
+});
+
+// Reset password (admin only — resets another user's password)
+router.post("/reset-password/:id", authenticate, isAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({
+      newPassword: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+    });
+    const { newPassword } = schema.parse(req.body);
+
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { id: true, boutiqueId: true } });
+    if (!targetUser) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    // Verify same boutique (SUPER_ADMIN bypasses)
+    const currentAdmin = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { boutiqueId: true, role: true },
+    });
+    if (currentAdmin?.role !== "SUPER_ADMIN" && targetUser.boutiqueId !== currentAdmin?.boutiqueId) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ message: "Mot de passe réinitialisé avec succès" });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Erreur lors de la réinitialisation" });
+  }
+});
+
 // Get all users (admin only)
 router.get("/users", authenticate, isAdminOrSuperAdmin, async (req, res) => {
   try {

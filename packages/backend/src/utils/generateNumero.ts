@@ -5,7 +5,7 @@ import { prisma } from "../index.js";
  * Utilise findMany + max pour éviter les doublons en cas de suppression,
  * et gère la concurrence avec un retry sur conflit.
  */
-export async function generateNumero(model: "achat" | "facture", prefix: string): Promise<string> {
+export async function generateNumero(model: "achat" | "facture" | "devis" | "avoir" | "inventaire", prefix: string): Promise<string> {
   const year = new Date().getFullYear();
   const startsWith = `${prefix}${year}-`;
 
@@ -23,6 +23,33 @@ export async function generateNumero(model: "achat" | "facture", prefix: string)
     }
     case "facture": {
       const last = await prisma.facture.findFirst({
+        where: { numero: { startsWith } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      lastNumero = last?.numero ?? null;
+      break;
+    }
+    case "devis": {
+      const last = await prisma.devis.findFirst({
+        where: { numero: { startsWith } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      lastNumero = last?.numero ?? null;
+      break;
+    }
+    case "avoir": {
+      const last = await prisma.avoir.findFirst({
+        where: { numero: { startsWith } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      lastNumero = last?.numero ?? null;
+      break;
+    }
+    case "inventaire": {
+      const last = await prisma.inventaire.findFirst({
         where: { numero: { startsWith } },
         orderBy: { numero: "desc" },
         select: { numero: true },

@@ -9,10 +9,12 @@ import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, C
 import { piecesApi, categoriesApi, marquesApi, exportApi, Piece, Categorie, Marque } from "@/lib/api";
 import PieceForm from "@/components/PieceForm";
 import ReplacePieceDialog from "@/components/ReplacePieceDialog";
+import { useToast } from "@/components/ui/Toaster";
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 
 export default function PiecesList() {
+  const { error: toastError } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [categories, setCategories] = useState<Categorie[]>([]);
@@ -72,7 +74,7 @@ export default function PiecesList() {
       setIsFormOpen(false);
     } catch (err) {
       console.error("Erreur lors de la sauvegarde:", err);
-      alert("Erreur lors de la sauvegarde de la pièce");
+      toastError("Erreur lors de la sauvegarde de la pièce");
     } finally {
       setSaving(false);
     }
@@ -97,7 +99,7 @@ export default function PiecesList() {
         await loadData();
       } catch (err) {
         console.error("Erreur lors de la suppression:", err);
-        alert("Erreur lors de la suppression de la pièce");
+        toastError("Erreur lors de la suppression de la pièce");
       }
     }
   };

@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { authApi } from "../lib/api";
+import { useToast } from "./ui/Toaster";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/Dialog";
 import {
   Package,
   Home,
@@ -21,11 +26,45 @@ import {
   Truck,
   Store,
   Building2,
+  ClipboardList,
+  ClipboardCheck,
+  RotateCcw,
+  KeyRound,
 } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, boutique, logout, isAdmin, isSuperAdmin } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toastError("Les mots de passe ne correspondent pas");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toastError("Le mot de passe doit contenir au moins 6 caractères");
+      return;
+    }
+    try {
+      setChangingPassword(true);
+      await authApi.changePassword(currentPassword, newPassword);
+      toastSuccess("Mot de passe modifié avec succès");
+      setPasswordDialogOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erreur lors du changement");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const getRoleIcon = () => {
     switch (user?.role) {
@@ -104,10 +143,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               Achats
             </Button>
           </Link>
+          <Link to="/devis" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Devis
+            </Button>
+          </Link>
           <Link to="/factures" onClick={() => setMobileMenuOpen(false)}>
             <Button variant="ghost" size="sm" className="w-full justify-start">
               <FileText className="mr-2 h-4 w-4" />
               Factures
+            </Button>
+          </Link>
+          <Link to="/avoirs" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Avoirs
+            </Button>
+          </Link>
+          <Link to="/inventaires" onClick={() => setMobileMenuOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <ClipboardCheck className="mr-2 h-4 w-4" />
+              Inventaires
             </Button>
           </Link>
           <Link to="/clients" onClick={() => setMobileMenuOpen(false)}>
@@ -160,6 +217,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {getRoleIcon()}
                 {user?.role}
               </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPasswordDialogOpen(true)}
+                title="Changer le mot de passe"
+              >
+                <KeyRound className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={logout} className="hidden sm:inline-flex">
                 <LogOut className="h-4 w-4 mr-2" />
                 Déconnexion
@@ -187,6 +252,58 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
       <main className="container mx-auto px-4 py-8">{children}</main>
+
+      {/* Dialog changement de mot de passe */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Changer le mot de passe</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Mot de passe actuel</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Votre mot de passe actuel"
+              />
+            </div>
+            <div>
+              <Label>Nouveau mot de passe</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimum 6 caractères"
+              />
+            </div>
+            <div>
+              <Label>Confirmer le nouveau mot de passe</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Retapez le nouveau mot de passe"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleChangePassword();
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+              >
+                {changingPassword ? "Modification..." : "Modifier"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

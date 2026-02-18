@@ -28,6 +28,7 @@ import {
   Phone,
   Mail,
 } from "lucide-react";
+import { useToast } from "@/components/ui/Toaster";
 
 interface BoutiqueFormData {
   nom: string;
@@ -48,6 +49,7 @@ const emptyForm: BoutiqueFormData = {
 };
 
 export default function Boutiques() {
+  const { error: toastError } = useToast();
   const [boutiques, setBoutiques] = useState<Boutique[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -135,7 +137,7 @@ export default function Boutiques() {
       loadData();
     } catch (err: unknown) {
       const error = err as { message?: string };
-      alert(error.message || "Erreur lors de la suppression");
+      toastError(error.message || "Erreur lors de la suppression");
     }
   };
 
@@ -148,7 +150,7 @@ export default function Boutiques() {
       loadData();
     } catch (err: unknown) {
       const error = err as { message?: string };
-      alert(error.message || "Erreur lors de l'assignation");
+      toastError(error.message || "Erreur lors de l'assignation");
     } finally {
       setIsAssigning(false);
     }

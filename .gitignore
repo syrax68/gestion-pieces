@@ -23,6 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Uploaded files
+packages/backend/uploads/*
+!packages/backend/uploads/.gitkeep
+
 # Environment variables
 .env
 .env.local

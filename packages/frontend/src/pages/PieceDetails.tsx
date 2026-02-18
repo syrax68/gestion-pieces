@@ -1,16 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ArrowLeft, Edit, Trash2, Package, Loader2 } from "lucide-react";
-import { Piece, piecesApi } from "@/lib/api";
+import { ArrowLeft, Package, Loader2, Upload, Star, Trash2, ImageIcon } from "lucide-react";
+import { Piece, Image as PieceImage, piecesApi, imagesApi } from "@/lib/api";
+import { useToast } from "@/components/ui/Toaster";
+import { useAuth } from "@/contexts/AuthContext";
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
 
 export default function PieceDetails() {
   const { id } = useParams();
+  const { canEdit } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [piece, setPiece] = useState<Piece | null>(null);
+  const [images, setImages] = useState<PieceImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadImages = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await imagesApi.getByPiece(id);
+      setImages(data);
+    } catch {
+      // Silently fail — images are optional
+    }
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -26,7 +45,43 @@ export default function PieceDetails() {
       }
     };
     load();
-  }, [id]);
+    loadImages();
+  }, [id, loadImages]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    try {
+      setUploading(true);
+      await imagesApi.upload(id, file);
+      toastSuccess("Image ajoutée");
+      loadImages();
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erreur d'upload");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSetPrincipale = async (imageId: string) => {
+    try {
+      await imagesApi.setPrincipale(imageId);
+      loadImages();
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erreur");
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      await imagesApi.delete(imageId);
+      toastSuccess("Image supprimée");
+      loadImages();
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erreur");
+    }
+  };
 
   if (loading) {
     return (
@@ -50,6 +105,8 @@ export default function PieceDetails() {
   const marge = piece.prixAchat && piece.prixAchat > 0
     ? (((piece.prixVente - piece.prixAchat) / piece.prixAchat) * 100).toFixed(1)
     : null;
+
+  const principaleImage = images.find((i) => i.principale) || images[0];
 
   return (
     <div className="space-y-6">
@@ -102,6 +159,100 @@ export default function PieceDetails() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Images section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  Photos ({images.length})
+                </CardTitle>
+                {canEdit && (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="mr-2 h-4 w-4" />
+                      )}
+                      Ajouter
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {images.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Aucune photo</p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Main image */}
+                  {principaleImage && (
+                    <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
+                      <img
+                        src={`${API_BASE}${principaleImage.url}`}
+                        alt={principaleImage.alt || piece.nom}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  {/* Thumbnails */}
+                  {images.length > 1 && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {images.map((img) => (
+                        <div key={img.id} className="relative group">
+                          <div
+                            className={`aspect-square rounded-lg overflow-hidden bg-muted border-2 ${
+                              img.principale ? "border-blue-500" : "border-transparent"
+                            }`}
+                          >
+                            <img
+                              src={`${API_BASE}${img.url}`}
+                              alt={img.alt || ""}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {canEdit && (
+                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {!img.principale && (
+                                <button
+                                  onClick={() => handleSetPrincipale(img.id)}
+                                  className="bg-white/90 rounded p-1 hover:bg-white"
+                                  title="Définir comme principale"
+                                >
+                                  <Star className="h-3 w-3" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteImage(img.id)}
+                                className="bg-white/90 rounded p-1 hover:bg-white text-red-500"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

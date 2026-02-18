@@ -100,6 +100,67 @@ export function serializeAchat<
   };
 }
 
+// ---------- Devis ----------
+
+export function serializeDevisItem<T extends FactureItemRaw>(i: T) {
+  return {
+    ...i,
+    prixUnitaire: Number(i.prixUnitaire),
+    remise: Number(i.remise),
+    tva: Number(i.tva),
+    total: Number(i.total),
+  };
+}
+
+export function serializeDevis<
+  T extends {
+    sousTotal: unknown;
+    remise: unknown;
+    remisePourcent: unknown;
+    tva: unknown;
+    total: unknown;
+    items?: FactureItemRaw[];
+  },
+>(d: T) {
+  return {
+    ...d,
+    sousTotal: Number(d.sousTotal),
+    remise: Number(d.remise),
+    remisePourcent: Number(d.remisePourcent),
+    tva: Number(d.tva),
+    total: Number(d.total),
+    ...(d.items ? { items: d.items.map(serializeDevisItem) } : {}),
+  };
+}
+
+// ---------- Avoirs ----------
+
+export function serializeAvoirItem<T extends { prixUnitaire: unknown; tva: unknown; total: unknown }>(i: T) {
+  return {
+    ...i,
+    prixUnitaire: Number(i.prixUnitaire),
+    tva: Number(i.tva),
+    total: Number(i.total),
+  };
+}
+
+export function serializeAvoir<
+  T extends {
+    sousTotal: unknown;
+    tva: unknown;
+    total: unknown;
+    items?: { prixUnitaire: unknown; tva: unknown; total: unknown }[];
+  },
+>(a: T) {
+  return {
+    ...a,
+    sousTotal: Number(a.sousTotal),
+    tva: Number(a.tva),
+    total: Number(a.total),
+    ...(a.items ? { items: a.items.map(serializeAvoirItem) } : {}),
+  };
+}
+
 // ---------- Historique prix ----------
 
 export function serializeHistoriquePrix<

@@ -16,6 +16,15 @@ import dashboardRoutes from "./routes/dashboard.js";
 import exportRoutes from "./routes/export.js";
 import activityRoutes from "./routes/activity.js";
 import boutiquesRoutes from "./routes/boutiques.js";
+import devisRoutes from "./routes/devis.js";
+import avoirsRoutes from "./routes/avoirs.js";
+import inventairesRoutes from "./routes/inventaires.js";
+import imagesRoutes from "./routes/images.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -64,6 +73,13 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/export", exportRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/boutiques", boutiquesRoutes);
+app.use("/api/devis", devisRoutes);
+app.use("/api/avoirs", avoirsRoutes);
+app.use("/api/inventaires", inventairesRoutes);
+app.use("/api/images", imagesRoutes);
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Health check
 app.get("/api/health", (_, res) => {

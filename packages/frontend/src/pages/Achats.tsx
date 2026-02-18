@@ -8,6 +8,7 @@ import { Autocomplete } from "@/components/ui/Autocomplete";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { ShoppingCart, Plus, Trash2, Check, X, Loader2 } from "lucide-react";
 import { Achat, Piece, achatsApi, piecesApi } from "@/lib/api";
+import { useToast } from "@/components/ui/Toaster";
 
 interface CartItem {
   id: string;
@@ -21,6 +22,7 @@ interface CartItem {
 }
 
 export default function Achats() {
+  const { error: toastError } = useToast();
   const [achats, setAchats] = useState<Achat[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -100,7 +102,7 @@ export default function Achats() {
 
   const handleSaveAchat = async () => {
     if (cart.length === 0 || cart.some((item) => !item.pieceId)) {
-      alert("Veuillez ajouter au moins une pièce valide");
+      toastError("Veuillez ajouter au moins une pièce valide");
       return;
     }
 
@@ -121,7 +123,7 @@ export default function Achats() {
       setIsFormOpen(false);
     } catch (err) {
       console.error("Erreur lors de la création de l'achat:", err);
-      alert("Erreur lors de la création de l'achat");
+      toastError("Erreur lors de la création de l'achat");
     } finally {
       setSaving(false);
     }

@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/Label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { Package, AlertTriangle, TrendingDown, Plus, Minus, RefreshCw, Loader2, Download } from "lucide-react";
 import { Piece, piecesApi, exportApi } from "@/lib/api";
+import { useToast } from "@/components/ui/Toaster";
 
 export default function StockManagement() {
+  const { error: toastError } = useToast();
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
   const [isMovementDialogOpen, setIsMovementDialogOpen] = useState(false);
@@ -63,7 +65,7 @@ export default function StockManagement() {
       setIsMovementDialogOpen(false);
     } catch (err) {
       console.error("Erreur lors du mouvement de stock:", err);
-      alert("Erreur lors du mouvement de stock");
+      toastError("Erreur lors du mouvement de stock");
     } finally {
       setSaving(false);
     }

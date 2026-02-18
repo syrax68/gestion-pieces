@@ -340,6 +340,62 @@ export interface Devis {
   items: DevisItem[];
 }
 
+export interface AvoirItem {
+  id: string;
+  designation: string;
+  quantite: number;
+  prixUnitaire: number;
+  tva: number;
+  total: number;
+  retourStock: boolean;
+  avoirId: string;
+  pieceId?: string;
+  piece?: Piece;
+}
+
+export interface Avoir {
+  id: string;
+  numero: string;
+  dateAvoir: string;
+  motif: string;
+  sousTotal: number;
+  tva: number;
+  total: number;
+  statut: "EN_ATTENTE" | "VALIDE" | "REMBOURSE";
+  notes?: string;
+  clientId?: string;
+  client?: Client;
+  factureId?: string;
+  facture?: { id: string; numero: string; statut: string };
+  items: AvoirItem[];
+}
+
+export interface InventaireItem {
+  id: string;
+  stockTheorique: number;
+  stockPhysique: number | null;
+  ecart: number | null;
+  notes?: string;
+  valide: boolean;
+  inventaireId: string;
+  pieceId: string;
+  piece?: { id: string; reference: string; nom: string; stock: number };
+}
+
+export interface Inventaire {
+  id: string;
+  numero: string;
+  dateDebut: string;
+  dateFin?: string;
+  statut: "EN_COURS" | "VALIDE" | "ANNULE";
+  notes?: string;
+  ecartTotal: number;
+  userId: string;
+  user?: { id: string; nom: string; prenom?: string };
+  items: InventaireItem[];
+  _count?: { items: number };
+}
+
 export interface AchatItem {
   id: string;
   quantite: number;
@@ -454,6 +510,10 @@ export const authApi = {
   getUsers: () => api.get<User[]>("/auth/users"),
   updateUser: (id: string, data: Partial<User & { password?: string }>) => api.put<User>(`/auth/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/auth/users/${id}`),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ message: string }>("/auth/change-password", { currentPassword, newPassword }),
+  resetPassword: (userId: string, newPassword: string) =>
+    api.post<{ message: string }>(`/auth/reset-password/${userId}`, { newPassword }),
 };
 
 export const piecesApi = {
@@ -482,6 +542,23 @@ export const piecesApi = {
       newPiece: { reference: string; nom: string };
       stats: Record<string, number>;
     }>(`/pieces/${id}/remplacer`, { newPieceId }),
+};
+
+export const imagesApi = {
+  getByPiece: (pieceId: string) => api.get<Image[]>(`/images/${pieceId}`),
+  upload: async (pieceId: string, file: File): Promise<Image> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await fetch(`${API_URL}/images/${pieceId}`, {
+      method: "POST",
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    return handleResponse<Image>(res);
+  },
+  setPrincipale: (imageId: string) => api.patch<{ message: string }>(`/images/${imageId}/principale`, {}),
+  delete: (imageId: string) => api.delete<{ message: string }>(`/images/${imageId}`),
 };
 
 export const categoriesApi = {
@@ -546,6 +623,76 @@ export const facturesApi = {
   updateStatus: (id: string, statut: string, data?: { montantPaye?: number; methodePaiement?: string }) =>
     api.patch<Facture>(`/factures/${id}/statut`, { statut, ...data }),
   delete: (id: string) => api.delete(`/factures/${id}`),
+};
+
+export const devisApi = {
+  getAll: (params?: { statut?: string; clientId?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.statut) searchParams.set("statut", params.statut);
+    if (params?.clientId) searchParams.set("clientId", params.clientId);
+    const query = searchParams.toString();
+    return api.get<Devis[]>(`/devis${query ? `?${query}` : ""}`);
+  },
+  getById: (id: string) => api.get<Devis>(`/devis/${id}`),
+  create: (data: {
+    clientId?: string;
+    dateValidite?: string;
+    items: { pieceId?: string; designation: string; quantite: number; prixUnitaire: number; remise?: number; tva?: number }[];
+    remise?: number;
+    conditions?: string;
+    notes?: string;
+    notesInternes?: string;
+  }) => api.post<Devis>("/devis", data),
+  update: (
+    id: string,
+    data: {
+      clientId?: string;
+      dateValidite?: string;
+      items: { pieceId?: string; designation: string; quantite: number; prixUnitaire: number; remise?: number; tva?: number }[];
+      remise?: number;
+      conditions?: string;
+      notes?: string;
+      notesInternes?: string;
+    },
+  ) => api.put<Devis>(`/devis/${id}`, data),
+  updateStatus: (id: string, statut: string) => api.patch<Devis>(`/devis/${id}/statut`, { statut }),
+  convertToFacture: (id: string) => api.post<Facture>(`/devis/${id}/convertir`),
+  delete: (id: string) => api.delete(`/devis/${id}`),
+};
+
+export const avoirsApi = {
+  getAll: (params?: { statut?: string; clientId?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.statut) searchParams.set("statut", params.statut);
+    if (params?.clientId) searchParams.set("clientId", params.clientId);
+    const query = searchParams.toString();
+    return api.get<Avoir[]>(`/avoirs${query ? `?${query}` : ""}`);
+  },
+  getById: (id: string) => api.get<Avoir>(`/avoirs/${id}`),
+  create: (data: {
+    clientId?: string;
+    factureId?: string;
+    motif: string;
+    items: { pieceId?: string; designation: string; quantite: number; prixUnitaire: number; tva?: number; retourStock?: boolean }[];
+    notes?: string;
+  }) => api.post<Avoir>("/avoirs", data),
+  updateStatus: (id: string, statut: string) => api.patch<Avoir>(`/avoirs/${id}/statut`, { statut }),
+  delete: (id: string) => api.delete(`/avoirs/${id}`),
+};
+
+export const inventairesApi = {
+  getAll: (statut?: string) => {
+    const query = statut ? `?statut=${statut}` : "";
+    return api.get<Inventaire[]>(`/inventaires${query}`);
+  },
+  getById: (id: string) => api.get<Inventaire>(`/inventaires/${id}`),
+  create: (data: { notes?: string; pieceIds?: string[] }) =>
+    api.post<Inventaire>("/inventaires", data),
+  updateItem: (id: string, itemId: string, data: { stockPhysique: number; notes?: string }) =>
+    api.put<InventaireItem>(`/inventaires/${id}/items/${itemId}`, data),
+  updateStatus: (id: string, statut: string) =>
+    api.patch<Inventaire>(`/inventaires/${id}/statut`, { statut }),
+  delete: (id: string) => api.delete(`/inventaires/${id}`),
 };
 
 export const achatsApi = {

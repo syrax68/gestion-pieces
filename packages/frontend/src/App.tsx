@@ -12,6 +12,9 @@ import Users from "./pages/Users";
 import Activity from "./pages/Activity";
 import Clients from "./pages/Clients";
 import Fournisseurs from "./pages/Fournisseurs";
+import DevisPage from "./pages/Devis";
+import AvoirsPage from "./pages/Avoirs";
+import InventairesPage from "./pages/Inventaires";
 import DashboardMultiBoutique from "./pages/DashboardMultiBoutique";
 import BoutiquesPage from "./pages/Boutiques";
 import { Loader2 } from "lucide-react";
@@ -168,6 +171,30 @@ function AppRoutes() {
                   element={
                     <NonSuperAdminRoute>
                       <Factures />
+                    </NonSuperAdminRoute>
+                  }
+                />
+                <Route
+                  path="/devis"
+                  element={
+                    <NonSuperAdminRoute>
+                      <DevisPage />
+                    </NonSuperAdminRoute>
+                  }
+                />
+                <Route
+                  path="/avoirs"
+                  element={
+                    <NonSuperAdminRoute>
+                      <AvoirsPage />
+                    </NonSuperAdminRoute>
+                  }
+                />
+                <Route
+                  path="/inventaires"
+                  element={
+                    <NonSuperAdminRoute>
+                      <InventairesPage />
                     </NonSuperAdminRoute>
                   }
                 />

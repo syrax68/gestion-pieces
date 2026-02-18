@@ -21,12 +21,12 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  Send,
   CheckCircle,
-  Ban,
-  DollarSign,
-  Filter,
+  XCircle,
+  ArrowRightLeft,
 } from "lucide-react";
-import { Facture, Piece, Client, facturesApi, piecesApi, clientsApi, exportApi } from "@/lib/api";
+import { Devis, Piece, Client, devisApi, piecesApi, clientsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/Toaster";
 import html2pdf from "html2pdf.js";
@@ -42,32 +42,33 @@ interface CartItem {
   total: number;
 }
 
-export default function Factures() {
+export default function DevisPage() {
   const { user } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const isVendeurOrAdmin = user?.role === "ADMIN" || user?.role === "VENDEUR";
 
-  const [factures, setFactures] = useState<Facture[]>([]);
+  const [devisList, setDevisList] = useState<Devis[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
-  const [selectedFacture, setSelectedFacture] = useState<Facture | null>(null);
-  const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
+  const [selectedDevis, setSelectedDevis] = useState<Devis | null>(null);
+  const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statutFilter, setStatutFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedDevis, setExpandedDevis] = useState<string | null>(null);
 
-  // Formulaire nouvelle facture
+  // Form state
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [clientNom, setClientNom] = useState("");
   const [clientTelephone, setClientTelephone] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState("");
-  const [expandedFacture, setExpandedFacture] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [methodePaiement, setMethodePaiement] = useState("especes");
   const [notes, setNotes] = useState("");
+  const [conditions, setConditions] = useState("");
+  const [dateValidite, setDateValidite] = useState("");
   const [tauxTVA, setTauxTVA] = useState(0);
 
   useEffect(() => {
@@ -78,8 +79,8 @@ export default function Factures() {
     try {
       setLoading(true);
       setError(null);
-      const [facturesData, piecesData, clientsData] = await Promise.all([facturesApi.getAll(), piecesApi.getAll(), clientsApi.getAll()]);
-      setFactures(facturesData);
+      const [devisData, piecesData, clientsData] = await Promise.all([devisApi.getAll(), piecesApi.getAll(), clientsApi.getAll()]);
+      setDevisList(devisData);
       setPieces(piecesData);
       setClients(clientsData);
     } catch (err) {
@@ -146,30 +147,21 @@ export default function Factures() {
     setCart(cart.filter((_, i) => i !== index));
   };
 
-  const calculateSousTotal = () => {
-    return cart.reduce((acc, item) => acc + item.total, 0);
-  };
+  const calculateSousTotal = () => cart.reduce((acc, item) => acc + item.total, 0);
+  const calculateTVA = () => (calculateSousTotal() * tauxTVA) / 100;
+  const calculateTotal = () => calculateSousTotal() + calculateTVA();
 
-  const calculateTVA = () => {
-    return (calculateSousTotal() * tauxTVA) / 100;
-  };
-
-  const calculateTotal = () => {
-    return calculateSousTotal() + calculateTVA();
-  };
-
-  const handleSaveFacture = async () => {
+  const handleSaveDevis = async () => {
     if (cart.length === 0 || cart.some((item) => !item.pieceId && !item.designation)) {
       toastError("Veuillez ajouter au moins un article valide");
       return;
     }
 
-    // Le stock sera vérifié côté backend au moment de la validation (BROUILLON → EN_ATTENTE)
-
     try {
       setSaving(true);
-      const factureData = {
+      const devisData = {
         clientId: selectedClientId || undefined,
+        dateValidite: dateValidite || undefined,
         items: cart.map((item) => ({
           pieceId: item.pieceId || undefined,
           designation: item.designation,
@@ -178,26 +170,25 @@ export default function Factures() {
           prixUnitaire: item.prixUnitaire,
           tva: tauxTVA,
         })),
-        methodePaiement,
+        conditions: conditions || undefined,
         notes: notes || undefined,
       };
 
-      let resultFacture: Facture;
-      if (editingFacture) {
-        resultFacture = await facturesApi.update(editingFacture.id, factureData);
+      let resultDevis: Devis;
+      if (editingDevis) {
+        resultDevis = await devisApi.update(editingDevis.id, devisData);
       } else {
-        resultFacture = await facturesApi.create(factureData);
+        resultDevis = await devisApi.create(devisData);
       }
       await loadData();
       resetForm();
       setIsFormOpen(false);
 
-      // Ouvrir l'aperçu d'impression
-      setSelectedFacture(resultFacture);
+      setSelectedDevis(resultDevis);
       setIsPrintOpen(true);
     } catch (err) {
-      console.error("Erreur lors de la sauvegarde de la facture:", err);
-      toastError(editingFacture ? "Erreur lors de la modification de la facture" : "Erreur lors de la création de la facture");
+      console.error("Erreur lors de la sauvegarde du devis:", err);
+      toastError(editingDevis ? "Erreur lors de la modification du devis" : "Erreur lors de la création du devis");
     } finally {
       setSaving(false);
     }
@@ -208,20 +199,22 @@ export default function Factures() {
     setClientTelephone("");
     setSelectedClientId("");
     setCart([]);
-    setMethodePaiement("especes");
     setNotes("");
-    setEditingFacture(null);
+    setConditions("");
+    setDateValidite("");
+    setEditingDevis(null);
   };
 
-  const handleEditFacture = (facture: Facture) => {
-    setEditingFacture(facture);
-    setSelectedClientId(facture.clientId || "");
-    setClientNom(facture.client?.nom || "");
-    setClientTelephone(facture.client?.telephone || "");
-    setMethodePaiement(facture.methodePaiement || "especes");
-    setNotes(facture.notes || "");
+  const handleEditDevis = (devis: Devis) => {
+    setEditingDevis(devis);
+    setSelectedClientId(devis.clientId || "");
+    setClientNom(devis.client?.nom || "");
+    setClientTelephone(devis.client?.telephone || "");
+    setNotes(devis.notes || "");
+    setConditions(devis.conditions || "");
+    setDateValidite(devis.dateValidite ? devis.dateValidite.slice(0, 10) : "");
     setCart(
-      facture.items.map((item) => ({
+      devis.items.map((item) => ({
         id: item.id,
         pieceId: item.pieceId || "",
         designation: item.designation,
@@ -232,51 +225,61 @@ export default function Factures() {
         total: item.total,
       })),
     );
-    if (facture.items.length > 0) {
-      setTauxTVA(facture.items[0].tva);
+    if (devis.items.length > 0) {
+      setTauxTVA(devis.items[0].tva);
     }
     setIsFormOpen(true);
   };
 
-  const handleValidateFacture = async (facture: Facture) => {
-    if (!confirm(`Valider la facture ${facture.numero} ? Le stock sera mis à jour et la facture ne sera plus modifiable.`)) {
-      return;
-    }
+  const handleEnvoyerDevis = async (devis: Devis) => {
+    if (!confirm(`Marquer le devis ${devis.numero} comme envoyé au client ?`)) return;
     try {
-      await facturesApi.updateStatus(facture.id, "EN_ATTENTE");
+      await devisApi.updateStatus(devis.id, "ENVOYE");
       await loadData();
     } catch (err) {
       console.error(err);
-      toastError("Erreur lors de la validation de la facture");
+      toastError("Erreur lors de l'envoi du devis");
     }
   };
 
-  const handlePayerFacture = async (facture: Facture) => {
-    if (!confirm(`Marquer la facture ${facture.numero} comme payée ?`)) return;
+  const handleAccepterDevis = async (devis: Devis) => {
+    if (!confirm(`Marquer le devis ${devis.numero} comme accepté par le client ?`)) return;
     try {
-      await facturesApi.updateStatus(facture.id, "PAYEE");
+      await devisApi.updateStatus(devis.id, "ACCEPTE");
       await loadData();
     } catch (err) {
       console.error(err);
-      toastError("Erreur lors du paiement");
+      toastError("Erreur lors de l'acceptation du devis");
     }
   };
 
-  const handleAnnulerFacture = async (facture: Facture) => {
-    if (!confirm(`Annuler la facture ${facture.numero} ? Le stock sera remis en place.`)) return;
+  const handleRefuserDevis = async (devis: Devis) => {
+    if (!confirm(`Marquer le devis ${devis.numero} comme refusé ?`)) return;
     try {
-      await facturesApi.updateStatus(facture.id, "ANNULEE");
+      await devisApi.updateStatus(devis.id, "REFUSE");
       await loadData();
     } catch (err) {
       console.error(err);
-      toastError("Erreur lors de l'annulation");
+      toastError("Erreur lors du refus du devis");
     }
   };
 
-  const handleDeleteFacture = async (facture: Facture) => {
-    if (!confirm(`Supprimer définitivement la facture ${facture.numero} ? Cette action est irréversible.`)) return;
+  const handleConvertirEnFacture = async (devis: Devis) => {
+    if (!confirm(`Convertir le devis ${devis.numero} en facture ? Une nouvelle facture (brouillon) sera créée avec les mêmes articles.`)) return;
     try {
-      await facturesApi.delete(facture.id);
+      await devisApi.convertToFacture(devis.id);
+      await loadData();
+      toastSuccess(`Facture créée avec succès depuis le devis ${devis.numero}. Rendez-vous dans Factures pour la valider.`);
+    } catch (err) {
+      console.error(err);
+      toastError("Erreur lors de la conversion en facture");
+    }
+  };
+
+  const handleDeleteDevis = async (devis: Devis) => {
+    if (!confirm(`Supprimer définitivement le devis ${devis.numero} ?`)) return;
+    try {
+      await devisApi.delete(devis.id);
       await loadData();
     } catch (err) {
       console.error(err);
@@ -284,21 +287,18 @@ export default function Factures() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleDownloadPDF = () => {
-    const element = document.getElementById("facture-print");
-    if (!element || !selectedFacture) return;
+    const element = document.getElementById("devis-print");
+    if (!element || !selectedDevis) return;
 
-    // Format ticket thermique 80mm de largeur
     const options = {
-      margin: [2, 2, 2, 2] as [number, number, number, number],
-      filename: `Facture-${selectedFacture.numero}.pdf`,
+      margin: [5, 5, 5, 5] as [number, number, number, number],
+      filename: `Devis-${selectedDevis.numero}.pdf`,
       image: { type: "jpeg" as const, quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: "mm", format: [80, 297] as [number, number], orientation: "portrait" as const },
+      jsPDF: { unit: "mm", format: "a4" as const, orientation: "portrait" as const },
     };
 
     html2pdf().set(options).from(element).save();
@@ -308,23 +308,23 @@ export default function Factures() {
     switch (statut) {
       case "BROUILLON":
         return <Badge variant="secondary">Brouillon</Badge>;
-      case "PAYEE":
-        return <Badge variant="success">Payée</Badge>;
-      case "EN_ATTENTE":
-        return <Badge variant="warning">En attente</Badge>;
-      case "PARTIELLEMENT_PAYEE":
-        return <Badge variant="warning">Partiellement payée</Badge>;
-      case "ANNULEE":
-        return <Badge variant="destructive">Annulée</Badge>;
+      case "ENVOYE":
+        return <Badge variant="warning">Envoyé</Badge>;
+      case "ACCEPTE":
+        return <Badge variant="success">Accepté</Badge>;
+      case "REFUSE":
+        return <Badge variant="destructive">Refusé</Badge>;
+      case "EXPIRE":
+        return <Badge variant="destructive">Expiré</Badge>;
       default:
         return <Badge>{statut}</Badge>;
     }
   };
 
-  const filteredFactures = factures.filter((f) => {
+  const filteredDevis = devisList.filter((d) => {
     const matchesSearch =
-      f.numero.toLowerCase().includes(searchTerm.toLowerCase()) || (f.client?.nom || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatut = statutFilter === "all" || f.statut === statutFilter;
+      d.numero.toLowerCase().includes(searchTerm.toLowerCase()) || (d.client?.nom || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatut = statutFilter === "all" || d.statut === statutFilter;
     return matchesSearch && matchesStatut;
   });
 
@@ -351,49 +351,40 @@ export default function Factures() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Facturation Rapide</h1>
-          <p className="text-muted-foreground">Créez et gérez vos factures de vente</p>
+          <h1 className="text-3xl font-bold tracking-tight">Devis</h1>
+          <p className="text-muted-foreground">Créez et gérez vos devis clients</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportApi.downloadFactures()}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+        {isVendeurOrAdmin && (
           <Button onClick={() => setIsFormOpen(true)} size="lg">
             <Plus className="mr-2 h-5 w-5" />
-            Nouvelle Facture
+            Nouveau Devis
           </Button>
-        </div>
+        )}
       </div>
 
-      {/* Recherche + Filtre statut */}
+      {/* Search + Filter */}
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par numéro ou client..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="Rechercher par numéro ou client..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-48">
           <option value="all">Tous les statuts</option>
           <option value="BROUILLON">Brouillons</option>
-          <option value="EN_ATTENTE">En attente</option>
-          <option value="PAYEE">Payées</option>
-          <option value="PARTIELLEMENT_PAYEE">Partiellement payées</option>
-          <option value="ANNULEE">Annulées</option>
+          <option value="ENVOYE">Envoyés</option>
+          <option value="ACCEPTE">Acceptés</option>
+          <option value="REFUSE">Refusés</option>
+          <option value="EXPIRE">Expirés</option>
         </Select>
       </div>
 
-      {/* Liste des factures */}
-      {filteredFactures.length === 0 ? (
+      {/* Devis list */}
+      {filteredDevis.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">Aucune facture</h3>
-            <p className="text-muted-foreground mt-2">Créez votre première facture de vente</p>
+            <h3 className="mt-4 text-lg font-semibold">Aucun devis</h3>
+            <p className="text-muted-foreground mt-2">Créez votre premier devis</p>
           </CardContent>
         </Card>
       ) : (
@@ -402,131 +393,88 @@ export default function Factures() {
             <thead>
               <tr className="bg-muted/50 text-left text-sm font-medium text-muted-foreground">
                 <th className="px-4 py-3 w-8"></th>
-                <th className="px-4 py-3">N° Facture</th>
+                <th className="px-4 py-3">N° Devis</th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Articles</th>
+                <th className="px-4 py-3">Validité</th>
                 <th className="px-4 py-3">Statut</th>
                 <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 w-28"></th>
+                <th className="px-4 py-3 w-36"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredFactures.map((facture) => (
+              {filteredDevis.map((devis) => (
                 <>
                   <tr
-                    key={facture.id}
+                    key={devis.id}
                     className="hover:bg-muted/30 cursor-pointer text-sm"
-                    onClick={() => setExpandedFacture(expandedFacture === facture.id ? null : facture.id)}
+                    onClick={() => setExpandedDevis(expandedDevis === devis.id ? null : devis.id)}
                   >
                     <td className="px-4 py-3">
-                      {expandedFacture === facture.id ? (
+                      {expandedDevis === devis.id ? (
                         <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
                     </td>
-                    <td className="px-4 py-3 font-medium">{facture.numero}</td>
-                    <td className="px-4 py-3">{facture.client?.nom || "Client anonyme"}</td>
+                    <td className="px-4 py-3 font-medium">{devis.numero}</td>
+                    <td className="px-4 py-3">{devis.client?.nom || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(facture.dateFacture).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
+                      {new Date(devis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {facture.items.length} article{facture.items.length > 1 ? "s" : ""}
+                      {new Date(devis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </td>
-                    <td className="px-4 py-3">{getStatutBadge(facture.statut)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Fmg</td>
+                    <td className="px-4 py-3">{getStatutBadge(devis.statut)}</td>
+                    <td className="px-4 py-3 text-right font-bold">{devis.total.toLocaleString()} Fmg</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
+                        {devis.statut === "BROUILLON" && isVendeurOrAdmin && (
                           <>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title="Modifier"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditFacture(facture);
-                              }}
-                            >
+                            <Button size="icon" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEditDevis(devis); }}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title="Valider la facture"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleValidateFacture(facture);
-                              }}
-                            >
-                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            <Button size="icon" variant="ghost" title="Envoyer au client" onClick={(e) => { e.stopPropagation(); handleEnvoyerDevis(devis); }}>
+                              <Send className="h-4 w-4 text-blue-600" />
                             </Button>
                           </>
                         )}
-                        {(facture.statut === "EN_ATTENTE" || facture.statut === "PARTIELLEMENT_PAYEE") && isVendeurOrAdmin && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Marquer comme payée"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePayerFacture(facture);
-                            }}
-                          >
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                          </Button>
+                        {devis.statut === "ENVOYE" && isVendeurOrAdmin && (
+                          <>
+                            <Button size="icon" variant="ghost" title="Accepté" onClick={(e) => { e.stopPropagation(); handleAccepterDevis(devis); }}>
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Refusé" onClick={(e) => { e.stopPropagation(); handleRefuserDevis(devis); }}>
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
                         )}
-                        {facture.statut !== "ANNULEE" && facture.statut !== "BROUILLON" && isVendeurOrAdmin && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Annuler la facture"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAnnulerFacture(facture);
-                            }}
-                          >
-                            <Ban className="h-4 w-4 text-red-500" />
+                        {devis.statut === "ACCEPTE" && isVendeurOrAdmin && (
+                          <Button size="icon" variant="ghost" title="Convertir en facture" onClick={(e) => { e.stopPropagation(); handleConvertirEnFacture(devis); }}>
+                            <ArrowRightLeft className="h-4 w-4 text-green-600" />
                           </Button>
                         )}
                         <Button
                           size="icon"
                           variant="ghost"
-                          title="Imprimer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedFacture(facture);
-                            setIsPrintOpen(true);
-                          }}
+                          title="Imprimer / PDF"
+                          onClick={(e) => { e.stopPropagation(); setSelectedDevis(devis); setIsPrintOpen(true); }}
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
                         {user?.role === "ADMIN" && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Supprimer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteFacture(facture);
-                            }}
-                          >
+                          <Button size="icon" variant="ghost" title="Supprimer" onClick={(e) => { e.stopPropagation(); handleDeleteDevis(devis); }}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         )}
                       </div>
                     </td>
                   </tr>
-                  {expandedFacture === facture.id && (
-                    <tr key={`${facture.id}-details`}>
+                  {expandedDevis === devis.id && (
+                    <tr key={`${devis.id}-details`}>
                       <td colSpan={8} className="bg-muted/20 px-8 py-3">
                         <div className="space-y-1">
-                          {facture.items.map((item) => (
+                          {devis.items.map((item) => (
                             <div key={item.id} className="flex justify-between items-center text-sm py-1">
                               <span>{item.designation}</span>
                               <span className="text-muted-foreground">
@@ -546,15 +494,15 @@ export default function Factures() {
         </div>
       )}
 
-      {/* Dialog Nouvelle Facture */}
+      {/* Dialog Nouveau Devis */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl">{editingFacture ? `Modifier ${editingFacture.numero}` : "Nouvelle Facture"}</DialogTitle>
+            <DialogTitle className="text-2xl">{editingDevis ? `Modifier ${editingDevis.numero}` : "Nouveau Devis"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Informations Client */}
+            {/* Client */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Client</CardTitle>
@@ -572,7 +520,6 @@ export default function Factures() {
                     ))}
                   </Select>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Nom du client</Label>
@@ -604,78 +551,63 @@ export default function Factures() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {cart.map((item, index) => {
-                      const piece = pieces.find((p) => p.id === item.pieceId);
-                      return (
-                        <div key={item.id} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
-                          <div className="col-span-5">
-                            <Label>Pièce</Label>
-                            <Autocomplete
-                              value={item.pieceId}
-                              onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
-                              options={pieces
-                                .filter((p) => p.stock > 0)
-                                .map((piece) => ({
-                                  value: piece.id,
-                                  label: piece.nom,
-                                  subtitle: `${piece.reference} - Stock: ${piece.stock}`,
-                                }))}
-                              placeholder="Rechercher une pièce..."
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Quantité</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              max={piece?.stock || 999}
-                              value={item.quantite}
-                              onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Prix Unit.</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.prixUnitaire}
-                              onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Total HT</Label>
-                            <Input value={item.total.toFixed(2)} readOnly />
-                          </div>
-                          <div className="col-span-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleRemoveFromCart(index)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                    {cart.map((item, index) => (
+                      <div key={item.id} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
+                        <div className="col-span-5">
+                          <Label>Pièce</Label>
+                          <Autocomplete
+                            value={item.pieceId}
+                            onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
+                            options={pieces.map((piece) => ({
+                              value: piece.id,
+                              label: piece.nom,
+                              subtitle: `${piece.reference} - Stock: ${piece.stock}`,
+                            }))}
+                            placeholder="Rechercher une pièce..."
+                          />
                         </div>
-                      );
-                    })}
+                        <div className="col-span-2">
+                          <Label>Quantité</Label>
+                          <Input type="number" min="1" value={item.quantite} onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <Label>Prix Unit.</Label>
+                          <Input type="number" step="0.01" value={item.prixUnitaire} onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <Label>Total HT</Label>
+                          <Input value={item.total.toFixed(2)} readOnly />
+                        </div>
+                        <div className="col-span-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoveFromCart(index)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Totaux et paiement */}
+            {/* Options & Totaux */}
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Méthode de paiement</Label>
-                    <Select value={methodePaiement} onChange={(e) => setMethodePaiement(e.target.value)}>
-                      <option value="especes">Espèces</option>
-                      <option value="carte">Carte bancaire</option>
-                      <option value="cheque">Chèque</option>
-                      <option value="virement">Virement</option>
-                    </Select>
+                    <Label>Date de validité</Label>
+                    <Input type="date" value={dateValidite} onChange={(e) => setDateValidite(e.target.value)} />
+                    <p className="text-xs text-muted-foreground mt-1">Par défaut : 30 jours</p>
                   </div>
                   <div>
                     <Label>Taux TVA (%)</Label>
                     <Input type="number" value={tauxTVA} onChange={(e) => setTauxTVA(Number(e.target.value))} />
                   </div>
+                </div>
+
+                <div>
+                  <Label>Conditions (optionnel)</Label>
+                  <Textarea placeholder="Conditions de paiement, délais..." value={conditions} onChange={(e) => setConditions(e.target.value)} rows={2} />
                 </div>
 
                 <div>
@@ -706,16 +638,16 @@ export default function Factures() {
               <X className="mr-2 h-4 w-4" />
               Annuler
             </Button>
-            <Button onClick={handleSaveFacture} disabled={cart.length === 0 || saving} size="lg">
+            <Button onClick={handleSaveDevis} disabled={cart.length === 0 || saving} size="lg">
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingFacture ? "Modification..." : "Création..."}
+                  {editingDevis ? "Modification..." : "Création..."}
                 </>
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  {editingFacture ? "Enregistrer les modifications" : "Créer la facture"}
+                  {editingDevis ? "Enregistrer les modifications" : "Créer le devis"}
                 </>
               )}
             </Button>
@@ -723,95 +655,102 @@ export default function Factures() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Impression */}
+      {/* Dialog Impression / PDF */}
       <Dialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:shadow-none">
-          {selectedFacture && (
-            <div className="space-y-3 text-sm print:text-xs" id="facture-print">
-              {/* En-tête */}
-              <div className="text-center border-b pb-2">
-                <h1 className="text-xl font-bold print:text-lg">FACTURE</h1>
-                <p className="text-base font-semibold mt-1 print:text-sm">{selectedFacture.numero}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(selectedFacture.dateFacture).toLocaleDateString("fr-FR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
+          {selectedDevis && (
+            <div className="space-y-4 text-sm" id="devis-print">
+              {/* Header */}
+              <div className="text-center border-b pb-3">
+                <h1 className="text-2xl font-bold">DEVIS</h1>
+                <p className="text-lg font-semibold mt-1">{selectedDevis.numero}</p>
+                <p className="text-sm text-muted-foreground">
+                  Date :{" "}
+                  {new Date(selectedDevis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Valide jusqu'au :{" "}
+                  {new Date(selectedDevis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </p>
               </div>
 
-              {/* Vendeur */}
-              <div className="border-b pb-2">
-                <p className="font-bold text-sm">Gestion Pièces Moto</p>
+              {/* Seller */}
+              <div className="border-b pb-3">
+                <p className="font-bold">Gestion Pièces Moto</p>
                 <p className="text-xs">123 Avenue des Motards</p>
                 <p className="text-xs">75001 Paris</p>
                 <p className="text-xs">Tél: 01 23 45 67 89</p>
               </div>
 
               {/* Client */}
-              <div className="border-b pb-2">
-                <p className="font-semibold text-xs mb-1">CLIENT:</p>
-                <p className="font-bold text-sm">{selectedFacture.client?.nom || "Client anonyme"}</p>
-                {selectedFacture.client?.telephone && <p className="text-xs">Tél: {selectedFacture.client.telephone}</p>}
+              <div className="border-b pb-3">
+                <p className="font-semibold text-xs mb-1">CLIENT :</p>
+                <p className="font-bold">{selectedDevis.client?.nom || "—"}</p>
+                {selectedDevis.client?.telephone && <p className="text-xs">Tél: {selectedDevis.client.telephone}</p>}
+                {selectedDevis.client?.email && <p className="text-xs">Email: {selectedDevis.client.email}</p>}
+                {selectedDevis.client?.adresse && <p className="text-xs">{selectedDevis.client.adresse}</p>}
               </div>
 
-              {/* Articles */}
-              <div className="border-b pb-2">
-                <table className="w-full text-xs">
+              {/* Items */}
+              <div className="border-b pb-3">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-1">Article</th>
-                      <th className="text-right py-1">Qté</th>
-                      <th className="text-right py-1">P.U.</th>
-                      <th className="text-right py-1">Total</th>
+                      <th className="text-left py-2">Désignation</th>
+                      <th className="text-right py-2">Qté</th>
+                      <th className="text-right py-2">P.U.</th>
+                      <th className="text-right py-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedFacture.items.map((item) => (
+                    {selectedDevis.items.map((item) => (
                       <tr key={item.id} className="border-b">
-                        <td className="py-1">
+                        <td className="py-2">
                           <div className="font-medium">{item.designation}</div>
-                          {item.description && <div className="text-[10px] text-muted-foreground">{item.description}</div>}
+                          {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
                         </td>
-                        <td className="text-right py-1">{item.quantite}</td>
-                        <td className="text-right py-1">{item.prixUnitaire.toFixed(0)}</td>
-                        <td className="text-right py-1 font-medium">{item.total.toFixed(0)}</td>
+                        <td className="text-right py-2">{item.quantite}</td>
+                        <td className="text-right py-2">{item.prixUnitaire.toLocaleString()}</td>
+                        <td className="text-right py-2 font-medium">{item.total.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Totaux */}
-              <div className="space-y-1 text-xs">
+              {/* Totals */}
+              <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span>Sous-total HT:</span>
-                  <span className="font-semibold">{selectedFacture.sousTotal.toLocaleString()} Fmg</span>
+                  <span>Sous-total HT :</span>
+                  <span className="font-semibold">{selectedDevis.sousTotal.toLocaleString()} Fmg</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>TVA:</span>
-                  <span className="font-semibold">{selectedFacture.tva.toLocaleString()} Fmg</span>
+                  <span>TVA :</span>
+                  <span className="font-semibold">{selectedDevis.tva.toLocaleString()} Fmg</span>
                 </div>
-                <div className="flex justify-between py-1 border-t-2 border-black text-base font-bold print:text-sm">
-                  <span>Total TTC:</span>
-                  <span>{selectedFacture.total.toLocaleString()} Fmg</span>
+                <div className="flex justify-between py-2 border-t-2 border-black text-lg font-bold">
+                  <span>Total TTC :</span>
+                  <span>{selectedDevis.total.toLocaleString()} Fmg</span>
                 </div>
-                {selectedFacture.methodePaiement && (
-                  <div className="text-[10px] text-muted-foreground">Payé par: {selectedFacture.methodePaiement}</div>
-                )}
               </div>
 
-              {selectedFacture.notes && (
-                <div className="border-t pt-2">
-                  <p className="text-xs">
-                    <span className="font-semibold">Notes:</span> {selectedFacture.notes}
-                  </p>
+              {selectedDevis.conditions && (
+                <div className="border-t pt-3">
+                  <p className="font-semibold text-xs">Conditions :</p>
+                  <p className="text-sm">{selectedDevis.conditions}</p>
                 </div>
               )}
 
-              <div className="text-center text-[10px] text-muted-foreground border-t pt-2">
-                <p>Merci de votre confiance !</p>
+              {selectedDevis.notes && (
+                <div className="border-t pt-3">
+                  <p className="font-semibold text-xs">Notes :</p>
+                  <p className="text-sm">{selectedDevis.notes}</p>
+                </div>
+              )}
+
+              <div className="text-center text-xs text-muted-foreground border-t pt-3">
+                <p>Ce devis est valable jusqu'au {new Date(selectedDevis.dateValidite).toLocaleDateString("fr-FR")}.</p>
+                <p className="mt-1">Merci de votre confiance !</p>
               </div>
             </div>
           )}
@@ -835,39 +774,23 @@ export default function Factures() {
       <style>{`
         @media print {
           @page {
-            size: 80mm auto;
-            margin: 2mm;
+            size: A4;
+            margin: 10mm;
           }
 
           body * {
             visibility: hidden;
           }
 
-          #facture-print, #facture-print * {
+          #devis-print, #devis-print * {
             visibility: visible;
           }
 
-          #facture-print {
+          #devis-print {
             position: absolute;
             left: 0;
             top: 0;
-            width: 80mm;
-            max-width: 80mm;
-            font-size: 10px;
-            padding: 0;
-            margin: 0;
-          }
-
-          #facture-print table {
-            font-size: 9px;
-          }
-
-          #facture-print .text-xs {
-            font-size: 8px;
-          }
-
-          #facture-print .text-\[10px\] {
-            font-size: 8px;
+            width: 100%;
           }
         }
       `}</style>

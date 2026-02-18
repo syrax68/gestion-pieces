@@ -15,8 +15,10 @@ import {
 } from '../components/ui/Dialog';
 import { Select } from '../components/ui/Select';
 import { Plus, Pencil, Trash2, User as UserIcon, Shield, Eye, Loader2 } from 'lucide-react';
+import { useToast } from "@/components/ui/Toaster";
 
 export default function Users() {
+  const { error: toastError } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -110,7 +112,7 @@ export default function Users() {
       loadUsers();
     } catch (err: unknown) {
       const error = err as { message?: string };
-      alert(error.message || 'Erreur lors de la suppression');
+      toastError(error.message || 'Erreur lors de la suppression');
     }
   };
 

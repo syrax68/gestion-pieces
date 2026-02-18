@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Truck, Plus, Search, Pencil, Trash2, Loader2, Phone, Mail, MapPin, Package } from "lucide-react";
 import { Fournisseur, fournisseursApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/Toaster";
 
 export default function Fournisseurs() {
   const { user } = useAuth();
+  const { error: toastError } = useToast();
   const isAdmin = user?.role === "ADMIN";
   const isVendeurOrAdmin = user?.role === "ADMIN" || user?.role === "VENDEUR";
 
@@ -76,7 +78,7 @@ export default function Fournisseurs() {
 
   const handleSave = async () => {
     if (!form.nom.trim()) {
-      alert("Le nom est requis");
+      toastError("Le nom est requis");
       return;
     }
 
@@ -92,7 +94,7 @@ export default function Fournisseurs() {
       resetForm();
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la sauvegarde");
+      toastError("Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
     }
@@ -105,7 +107,7 @@ export default function Fournisseurs() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la suppression");
+      toastError("Erreur lors de la suppression");
     }
   };
 
