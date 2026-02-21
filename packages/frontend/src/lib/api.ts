@@ -77,6 +77,7 @@ export interface User {
   nom: string;
   prenom?: string;
   telephone?: string;
+  photo?: string;
   role: "SUPER_ADMIN" | "ADMIN" | "VENDEUR" | "LECTEUR";
   actif: boolean;
   boutiqueId?: string;
@@ -335,6 +336,8 @@ export interface Devis {
   notesInternes?: string;
   clientId?: string;
   client?: Client;
+  boutiqueId?: string;
+  boutique?: Boutique;
   createurId: string;
   createur?: User;
   items: DevisItem[];
@@ -514,6 +517,17 @@ export const authApi = {
     api.post<{ message: string }>("/auth/change-password", { currentPassword, newPassword }),
   resetPassword: (userId: string, newPassword: string) =>
     api.post<{ message: string }>(`/auth/reset-password/${userId}`, { newPassword }),
+  uploadAvatar: async (userId: string, file: File): Promise<User> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("photo", file);
+    const res = await fetch(`${API_URL}/auth/users/${userId}/photo`, {
+      method: "POST",
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    return handleResponse<User>(res);
+  },
 };
 
 export const piecesApi = {
@@ -756,6 +770,17 @@ export const boutiquesApi = {
   create: (data: Partial<Boutique>) => api.post<Boutique>("/boutiques", data),
   update: (id: string, data: Partial<Boutique>) => api.put<Boutique>(`/boutiques/${id}`, data),
   delete: (id: string) => api.delete(`/boutiques/${id}`),
+  uploadLogo: async (id: string, file: File): Promise<Boutique> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("logo", file);
+    const res = await fetch(`${API_URL}/boutiques/${id}/logo`, {
+      method: "POST",
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    return handleResponse<Boutique>(res);
+  },
 };
 
 const API_URL_RAW = import.meta.env.VITE_API_URL || "http://localhost:3001/api";

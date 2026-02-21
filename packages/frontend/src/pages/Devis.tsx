@@ -31,6 +31,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/Toaster";
 import html2pdf from "html2pdf.js";
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
+const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${API_BASE}${url}`);
+
 interface CartItem {
   id: string;
   pieceId: string;
@@ -657,105 +660,10 @@ export default function DevisPage() {
 
       {/* Dialog Impression / PDF */}
       <Dialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:shadow-none">
-          {selectedDevis && (
-            <div className="space-y-4 text-sm" id="devis-print">
-              {/* Header */}
-              <div className="text-center border-b pb-3">
-                <h1 className="text-2xl font-bold">DEVIS</h1>
-                <p className="text-lg font-semibold mt-1">{selectedDevis.numero}</p>
-                <p className="text-sm text-muted-foreground">
-                  Date :{" "}
-                  {new Date(selectedDevis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Valide jusqu'au :{" "}
-                  {new Date(selectedDevis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                </p>
-              </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:shadow-none print:max-h-none print:overflow-visible">
+          {selectedDevis && <DevisPrintTemplate devis={selectedDevis} />}
 
-              {/* Seller */}
-              <div className="border-b pb-3">
-                <p className="font-bold">Gestion Pièces Moto</p>
-                <p className="text-xs">123 Avenue des Motards</p>
-                <p className="text-xs">75001 Paris</p>
-                <p className="text-xs">Tél: 01 23 45 67 89</p>
-              </div>
-
-              {/* Client */}
-              <div className="border-b pb-3">
-                <p className="font-semibold text-xs mb-1">CLIENT :</p>
-                <p className="font-bold">{selectedDevis.client?.nom || "—"}</p>
-                {selectedDevis.client?.telephone && <p className="text-xs">Tél: {selectedDevis.client.telephone}</p>}
-                {selectedDevis.client?.email && <p className="text-xs">Email: {selectedDevis.client.email}</p>}
-                {selectedDevis.client?.adresse && <p className="text-xs">{selectedDevis.client.adresse}</p>}
-              </div>
-
-              {/* Items */}
-              <div className="border-b pb-3">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Désignation</th>
-                      <th className="text-right py-2">Qté</th>
-                      <th className="text-right py-2">P.U.</th>
-                      <th className="text-right py-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedDevis.items.map((item) => (
-                      <tr key={item.id} className="border-b">
-                        <td className="py-2">
-                          <div className="font-medium">{item.designation}</div>
-                          {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
-                        </td>
-                        <td className="text-right py-2">{item.quantite}</td>
-                        <td className="text-right py-2">{item.prixUnitaire.toLocaleString()}</td>
-                        <td className="text-right py-2 font-medium">{item.total.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals */}
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span>Sous-total HT :</span>
-                  <span className="font-semibold">{selectedDevis.sousTotal.toLocaleString()} Fmg</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>TVA :</span>
-                  <span className="font-semibold">{selectedDevis.tva.toLocaleString()} Fmg</span>
-                </div>
-                <div className="flex justify-between py-2 border-t-2 border-black text-lg font-bold">
-                  <span>Total TTC :</span>
-                  <span>{selectedDevis.total.toLocaleString()} Fmg</span>
-                </div>
-              </div>
-
-              {selectedDevis.conditions && (
-                <div className="border-t pt-3">
-                  <p className="font-semibold text-xs">Conditions :</p>
-                  <p className="text-sm">{selectedDevis.conditions}</p>
-                </div>
-              )}
-
-              {selectedDevis.notes && (
-                <div className="border-t pt-3">
-                  <p className="font-semibold text-xs">Notes :</p>
-                  <p className="text-sm">{selectedDevis.notes}</p>
-                </div>
-              )}
-
-              <div className="text-center text-xs text-muted-foreground border-t pt-3">
-                <p>Ce devis est valable jusqu'au {new Date(selectedDevis.dateValidite).toLocaleDateString("fr-FR")}.</p>
-                <p className="mt-1">Merci de votre confiance !</p>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="print:hidden">
+          <DialogFooter className="print:hidden mt-4">
             <Button variant="outline" onClick={() => setIsPrintOpen(false)}>
               Fermer
             </Button>
@@ -773,27 +681,151 @@ export default function DevisPage() {
 
       <style>{`
         @media print {
-          @page {
-            size: A4;
-            margin: 10mm;
-          }
-
-          body * {
-            visibility: hidden;
-          }
-
-          #devis-print, #devis-print * {
-            visibility: visible;
-          }
-
-          #devis-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
+          @page { size: A4; margin: 12mm; }
+          body * { visibility: hidden; }
+          #devis-print, #devis-print * { visibility: visible; }
+          #devis-print { position: absolute; left: 0; top: 0; width: 100%; font-family: Arial, sans-serif; }
+          .print-table { border-collapse: collapse; width: 100%; }
+          .print-table th, .print-table td { border: 1px solid #ddd; padding: 6px 8px; }
+          .print-table thead { background-color: #f5f5f5; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function DevisPrintTemplate({ devis }: { devis: Devis }) {
+  const boutique = devis.boutique;
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("fr-FR");
+
+  return (
+    <div id="devis-print" style={{ fontFamily: "Arial, sans-serif", color: "#111", fontSize: 13 }}>
+      {/* ─── HEADER : Logo + Boutique info | Devis title ─── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 16, borderBottom: "2px solid #111", marginBottom: 20 }}>
+        {/* Left: Logo + boutique info */}
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          {boutique?.logo ? (
+            <img
+              src={mediaUrl(boutique.logo)}
+              alt={boutique.nom}
+              style={{ height: 60, maxWidth: 120, objectFit: "contain" }}
+            />
+          ) : null}
+          <div>
+            <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{boutique?.nom || "—"}</p>
+            {boutique?.adresse && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>{boutique.adresse}</p>}
+            {boutique?.ville && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>{boutique.ville}</p>}
+            {boutique?.telephone && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>Tél : {boutique.telephone}</p>}
+            {boutique?.email && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>{boutique.email}</p>}
+            {boutique?.siret && <p style={{ fontSize: 10, color: "#888" }}>SIRET : {boutique.siret}</p>}
+          </div>
+        </div>
+
+        {/* Right: Devis title */}
+        <div style={{ textAlign: "right" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, marginBottom: 4, color: "#1a1a1a" }}>DEVIS</h1>
+          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>N° {devis.numero}</p>
+          <p style={{ fontSize: 11, color: "#555" }}>Date : {fmtDate(devis.dateDevis)}</p>
+          <p style={{ fontSize: 11, color: "#555" }}>Validité : {fmtDate(devis.dateValidite)}</p>
+        </div>
+      </div>
+
+      {/* ─── CLIENT ─── */}
+      <div style={{ marginBottom: 20, padding: "10px 14px", backgroundColor: "#f8f8f8", borderLeft: "3px solid #111", borderRadius: 2 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#666", marginBottom: 6 }}>Facturé à</p>
+        <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{devis.client?.nom || "Client non précisé"}</p>
+        {devis.client?.entreprise && <p style={{ fontSize: 12, marginBottom: 1 }}>{devis.client.entreprise}</p>}
+        {devis.client?.adresse && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>{devis.client.adresse}</p>}
+        {(devis.client?.ville || devis.client?.codePostal) && (
+          <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>
+            {devis.client?.codePostal} {devis.client?.ville}
+          </p>
+        )}
+        {devis.client?.telephone && <p style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>Tél : {devis.client.telephone}</p>}
+        {devis.client?.email && <p style={{ fontSize: 11, color: "#555" }}>{devis.client.email}</p>}
+      </div>
+
+      {/* ─── ITEMS TABLE ─── */}
+      <table className="print-table" style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: 12 }}>
+        <thead>
+          <tr style={{ backgroundColor: "#1a1a1a", color: "#fff" }}>
+            <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600 }}>Désignation</th>
+            <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, width: 50 }}>Qté</th>
+            <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, width: 100 }}>P.U. HT</th>
+            {devis.items.some((i) => i.remise > 0) && (
+              <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, width: 70 }}>Remise</th>
+            )}
+            <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, width: 110 }}>Total HT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {devis.items.map((item, idx) => (
+            <tr key={item.id} style={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
+              <td style={{ padding: "7px 10px", borderBottom: "1px solid #eee" }}>
+                <div style={{ fontWeight: 600 }}>{item.designation}</div>
+                {item.description && <div style={{ fontSize: 10, color: "#777", marginTop: 2 }}>{item.description}</div>}
+              </td>
+              <td style={{ padding: "7px 10px", textAlign: "center", borderBottom: "1px solid #eee" }}>{item.quantite}</td>
+              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee" }}>{fmt(item.prixUnitaire)} Fmg</td>
+              {devis.items.some((i) => i.remise > 0) && (
+                <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee", color: "#e55" }}>
+                  {item.remise > 0 ? `-${item.remise}%` : "—"}
+                </td>
+              )}
+              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee", fontWeight: 600 }}>{fmt(item.total)} Fmg</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ─── TOTALS ─── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+        <div style={{ width: 280 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
+            <span style={{ color: "#555" }}>Sous-total HT</span>
+            <span>{fmt(devis.sousTotal)} Fmg</span>
+          </div>
+          {devis.remise > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#e55" }}>
+              <span>Remise</span>
+              <span>- {fmt(devis.remise)} Fmg</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
+            <span style={{ color: "#555" }}>TVA</span>
+            <span>{fmt(devis.tva)} Fmg</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", marginTop: 6, backgroundColor: "#1a1a1a", color: "#fff", fontWeight: 700, fontSize: 15, borderRadius: 3 }}>
+            <span>TOTAL TTC</span>
+            <span>{fmt(devis.total)} Fmg</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── CONDITIONS / NOTES ─── */}
+      {(devis.conditions || devis.notes) && (
+        <div style={{ borderTop: "1px solid #ddd", paddingTop: 12, marginBottom: 16, fontSize: 11 }}>
+          {devis.conditions && (
+            <div style={{ marginBottom: 8 }}>
+              <p style={{ fontWeight: 700, marginBottom: 4, textTransform: "uppercase", fontSize: 10, letterSpacing: 1, color: "#666" }}>Conditions</p>
+              <p style={{ color: "#444", whiteSpace: "pre-line" }}>{devis.conditions}</p>
+            </div>
+          )}
+          {devis.notes && (
+            <div>
+              <p style={{ fontWeight: 700, marginBottom: 4, textTransform: "uppercase", fontSize: 10, letterSpacing: 1, color: "#666" }}>Notes</p>
+              <p style={{ color: "#444", whiteSpace: "pre-line" }}>{devis.notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── FOOTER ─── */}
+      <div style={{ borderTop: "1px solid #ddd", paddingTop: 10, textAlign: "center", fontSize: 10, color: "#888" }}>
+        <p>Ce devis est valable jusqu'au <strong>{fmtDate(devis.dateValidite)}</strong>.</p>
+        <p style={{ marginTop: 4 }}>Merci de votre confiance ! — {boutique?.nom}</p>
+      </div>
     </div>
   );
 }

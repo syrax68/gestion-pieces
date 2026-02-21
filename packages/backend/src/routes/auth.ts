@@ -2,8 +2,22 @@ import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
 import { prisma } from "../index.js";
 import { authenticate, isAdminOrSuperAdmin, AuthRequest } from "../middleware/auth.js";
+import { uploadToR2, deleteFromR2 } from "../lib/r2.js";
+
+const uploadAvatar = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".jpg", ".jpeg", ".png", ".webp"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error("Format non supporté. Utilisez JPG, PNG ou WebP."));
+  },
+});
 
 const router = Router();
 
@@ -59,6 +73,7 @@ router.post("/login", async (req, res) => {
         email: user.email,
         nom: user.nom,
         prenom: user.prenom,
+        photo: user.photo,
         role: user.role,
         boutiqueId: user.boutiqueId,
         boutique: user.boutique,
@@ -134,6 +149,7 @@ router.get("/me", authenticate, async (req: AuthRequest, res: Response) => {
         email: true,
         nom: true,
         prenom: true,
+        photo: true,
         role: true,
         boutiqueId: true,
         boutique: { select: { id: true, nom: true } },
@@ -246,6 +262,7 @@ router.get("/users", authenticate, isAdminOrSuperAdmin, async (req, res) => {
         email: true,
         nom: true,
         prenom: true,
+        photo: true,
         role: true,
         actif: true,
         boutiqueId: true,
@@ -299,6 +316,7 @@ router.put("/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => 
         email: true,
         nom: true,
         prenom: true,
+        photo: true,
         role: true,
         actif: true,
         boutiqueId: true,
@@ -310,6 +328,41 @@ router.put("/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => 
   } catch (error) {
     console.error("Update user error:", error);
     res.status(500).json({ error: "Erreur lors de la mise à jour" });
+  }
+});
+
+// Upload avatar (admin for any user, user for themselves)
+router.post("/users/:id/photo", authenticate, uploadAvatar.single("photo"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Allow self-upload or admin
+    const isSelf = req.user!.userId === id;
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(req.user!.role);
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({ error: "Non autorisé" });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id }, select: { photo: true } });
+    if (!existing) return res.status(404).json({ error: "Utilisateur non trouvé" });
+
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
+
+    // Delete old avatar from R2
+    if (existing.photo) await deleteFromR2(existing.photo);
+
+    const photoUrl = await uploadToR2(req.file.buffer, req.file.originalname, req.file.mimetype, "avatars/");
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { photo: photoUrl },
+      select: { id: true, email: true, nom: true, prenom: true, photo: true, role: true, actif: true, boutiqueId: true, createdAt: true },
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error("Upload avatar error:", error);
+    res.status(500).json({ error: "Erreur lors de l'upload" });
   }
 });
 

@@ -3,12 +3,23 @@ import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ArrowLeft, Package, Loader2, Upload, Star, Trash2, ImageIcon } from "lucide-react";
-import { Piece, Image as PieceImage, piecesApi, imagesApi } from "@/lib/api";
+import { ArrowLeft, Package, Loader2, UploadCloud, Star, Trash2, ImageIcon, TrendingUp, X } from "lucide-react";
+import { Piece, HistoriquePrix, Image as PieceImage, piecesApi, imagesApi } from "@/lib/api";
 import { useToast } from "@/components/ui/Toaster";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
+const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${API_BASE}${url}`);
 
 export default function PieceDetails() {
   const { id } = useParams();
@@ -19,6 +30,8 @@ export default function PieceDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadImages = useCallback(async () => {
@@ -48,9 +61,8 @@ export default function PieceDetails() {
     loadImages();
   }, [id, loadImages]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !id) return;
+  const uploadFile = async (file: File) => {
+    if (!id) return;
     try {
       setUploading(true);
       await imagesApi.upload(id, file);
@@ -63,6 +75,25 @@ export default function PieceDetails() {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) uploadFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => setDragOver(false);
 
   const handleSetPrincipale = async (imageId: string) => {
     try {
@@ -162,99 +193,163 @@ export default function PieceDetails() {
             </CardContent>
           </Card>
 
+          {/* Historique des prix */}
+          {piece.historiquePrix && piece.historiquePrix.length > 1 && (
+            <PriceHistoryCard historique={piece.historiquePrix} />
+          )}
+
           {/* Images section */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5" />
-                  Photos ({images.length})
-                </CardTitle>
-                {canEdit && (
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                    >
-                      {uploading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Upload className="mr-2 h-4 w-4" />
-                      )}
-                      Ajouter
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                Photos ({images.length})
+              </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleUpload}
+                className="hidden"
+              />
+
               {images.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Aucune photo</p>
+                canEdit ? (
+                  /* Empty drop zone */
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-12 flex flex-col items-center gap-3 cursor-pointer transition-all select-none ${
+                      dragOver
+                        ? "border-primary bg-primary/5 scale-[1.01]"
+                        : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/40"
+                    }`}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                    ) : (
+                      <UploadCloud className={`h-12 w-12 transition-colors ${dragOver ? "text-primary" : "text-muted-foreground/50"}`} />
+                    )}
+                    <div className="text-center">
+                      <p className="font-semibold text-sm">Glisser une photo ici</p>
+                      <p className="text-xs text-muted-foreground mt-1">ou <span className="text-primary underline underline-offset-2">cliquer pour parcourir</span></p>
+                      <p className="text-xs text-muted-foreground/60 mt-3">JPG, PNG, WebP · max 5 Mo</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">Aucune photo disponible</p>
+                )
               ) : (
-                <div className="space-y-4">
+                <div
+                  className={`space-y-3 transition-all ${canEdit && dragOver ? "ring-2 ring-primary ring-offset-2 rounded-xl" : ""}`}
+                  onDragOver={canEdit ? handleDragOver : undefined}
+                  onDragLeave={canEdit ? handleDragLeave : undefined}
+                  onDrop={canEdit ? handleDrop : undefined}
+                >
                   {/* Main image */}
                   {principaleImage && (
-                    <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
+                    <div
+                      className="aspect-video relative rounded-xl overflow-hidden bg-muted cursor-zoom-in"
+                      onClick={() => setSelectedImage(mediaUrl(principaleImage.url))}
+                    >
                       <img
-                        src={`${API_BASE}${principaleImage.url}`}
+                        src={mediaUrl(principaleImage.url)}
                         alt={principaleImage.alt || piece.nom}
                         className="w-full h-full object-contain"
                       />
                     </div>
                   )}
-                  {/* Thumbnails */}
-                  {images.length > 1 && (
-                    <div className="grid grid-cols-4 gap-2">
-                      {images.map((img) => (
-                        <div key={img.id} className="relative group">
-                          <div
-                            className={`aspect-square rounded-lg overflow-hidden bg-muted border-2 ${
-                              img.principale ? "border-blue-500" : "border-transparent"
-                            }`}
-                          >
-                            <img
-                              src={`${API_BASE}${img.url}`}
-                              alt={img.alt || ""}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          {canEdit && (
-                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {!img.principale && (
-                                <button
-                                  onClick={() => handleSetPrincipale(img.id)}
-                                  className="bg-white/90 rounded p-1 hover:bg-white"
-                                  title="Définir comme principale"
-                                >
-                                  <Star className="h-3 w-3" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteImage(img.id)}
-                                className="bg-white/90 rounded p-1 hover:bg-white text-red-500"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
+
+                  {/* Thumbnails grid + add tile */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {images.map((img) => (
+                      <div key={img.id} className="relative group">
+                        <div
+                          className={`aspect-square rounded-lg overflow-hidden bg-muted border-2 cursor-pointer transition-all ${
+                            img.principale ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                          }`}
+                          onClick={() => setSelectedImage(mediaUrl(img.url))}
+                        >
+                          <img
+                            src={mediaUrl(img.url)}
+                            alt={img.alt || ""}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        {img.principale && (
+                          <div className="absolute bottom-1 left-1 pointer-events-none">
+                            <span className="bg-primary text-primary-foreground text-[10px] px-1 rounded font-medium">★</span>
+                          </div>
+                        )}
+                        {canEdit && (
+                          <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {!img.principale && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSetPrincipale(img.id); }}
+                                className="bg-white/95 dark:bg-zinc-800/95 rounded p-1 hover:bg-white dark:hover:bg-zinc-700 shadow-sm"
+                                title="Définir comme principale"
+                              >
+                                <Star className="h-3 w-3 text-yellow-500" />
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                              className="bg-white/95 dark:bg-zinc-800/95 rounded p-1 hover:bg-red-50 dark:hover:bg-red-900/30 shadow-sm"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Add more tile */}
+                    {canEdit && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center gap-1 hover:border-primary/50 hover:bg-muted/40 transition-colors text-muted-foreground disabled:opacity-40"
+                      >
+                        {uploading ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-5 w-5" />
+                        )}
+                        <span className="text-[10px]">Ajouter</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Lightbox */}
+          {selectedImage && (
+            <div
+              className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+              onClick={() => setSelectedImage(null)}
+            >
+              <button
+                className="absolute top-4 right-4 text-white/80 hover:text-white"
+                onClick={() => setSelectedImage(null)}
+              >
+                <X className="h-8 w-8" />
+              </button>
+              <img
+                src={selectedImage}
+                alt=""
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -315,5 +410,68 @@ export default function PieceDetails() {
         </div>
       </div>
     </div>
+  );
+}
+
+function PriceHistoryCard({ historique }: { historique: HistoriquePrix[] }) {
+  const sorted = [...historique].sort(
+    (a, b) => new Date(a.dateChangement).getTime() - new Date(b.dateChangement).getTime(),
+  );
+
+  const chartData = sorted.map((h) => ({
+    date: new Date(h.dateChangement).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" }),
+    "Prix vente": h.prixVente,
+    "Prix achat": h.prixAchat ?? undefined,
+  }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <TrendingUp className="h-5 w-5" />
+          Historique des prix
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => v.toLocaleString()} />
+            <Tooltip formatter={(value) => [`${(value as number).toLocaleString()} Fmg`]} />
+            <Legend />
+            <Line type="monotone" dataKey="Prix vente" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="Prix achat" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" />
+          </LineChart>
+        </ResponsiveContainer>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-muted-foreground">
+                <th className="text-left py-1 px-2">Date</th>
+                <th className="text-right py-1 px-2">Prix vente</th>
+                <th className="text-right py-1 px-2">Prix achat</th>
+                <th className="text-left py-1 px-2">Motif</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...historique].slice(0, 10).map((h) => (
+                <tr key={h.id} className="border-b last:border-0 hover:bg-muted/50">
+                  <td className="py-1 px-2 text-muted-foreground text-xs">
+                    {new Date(h.dateChangement).toLocaleDateString("fr-FR")}
+                  </td>
+                  <td className="py-1 px-2 text-right font-medium">{h.prixVente.toLocaleString()} Fmg</td>
+                  <td className="py-1 px-2 text-right text-muted-foreground">
+                    {h.prixAchat ? `${h.prixAchat.toLocaleString()} Fmg` : "—"}
+                  </td>
+                  <td className="py-1 px-2 text-muted-foreground text-xs">{h.motif || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

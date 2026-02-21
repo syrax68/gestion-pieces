@@ -1,8 +1,22 @@
 import { Router, Response } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
 import { prisma } from "../index.js";
 import { authenticate, isSuperAdmin, AuthRequest } from "../middleware/auth.js";
 import { handleRouteError } from "../utils/handleError.js";
+import { uploadToR2, deleteFromR2 } from "../lib/r2.js";
+
+const uploadLogo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".jpg", ".jpeg", ".png", ".webp"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error("Format non supporté. Utilisez JPG, PNG ou WebP."));
+  },
+});
 
 const router = Router();
 
@@ -73,6 +87,33 @@ router.put("/:id", authenticate, isSuperAdmin, async (req, res) => {
     res.json(boutique);
   } catch (error) {
     handleRouteError(res, error, "la mise à jour de la boutique");
+  }
+});
+
+// Upload logo (super_admin only)
+router.post("/:id/logo", authenticate, isSuperAdmin, uploadLogo.single("logo"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.boutique.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: "Boutique non trouvée" });
+
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
+
+    // Delete old logo from R2 if it's an R2 URL
+    if (existing.logo) {
+      await deleteFromR2(existing.logo);
+    }
+
+    const logoUrl = await uploadToR2(req.file.buffer, req.file.originalname, req.file.mimetype, "logos/");
+    const boutique = await prisma.boutique.update({
+      where: { id },
+      data: { logo: logoUrl },
+    });
+
+    res.json(boutique);
+  } catch (error) {
+    handleRouteError(res, error, "l'upload du logo");
   }
 });
 

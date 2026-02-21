@@ -1,20 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Label } from "@/components/ui/Label";
-import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download, ArrowLeftRight } from "lucide-react";
-import { piecesApi, categoriesApi, marquesApi, exportApi, Piece, Categorie, Marque } from "@/lib/api";
+import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download, ArrowLeftRight, Camera, ImageIcon } from "lucide-react";
+import { piecesApi, categoriesApi, marquesApi, exportApi, imagesApi, Piece, Categorie, Marque } from "@/lib/api";
 import PieceForm from "@/components/PieceForm";
 import ReplacePieceDialog from "@/components/ReplacePieceDialog";
 import { useToast } from "@/components/ui/Toaster";
+import { useAuth } from "@/contexts/AuthContext";
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
+const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${API_BASE}${url}`);
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 
 export default function PiecesList() {
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
+  const { canEdit } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [categories, setCategories] = useState<Categorie[]>([]);
@@ -25,6 +29,9 @@ export default function PiecesList() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [replacePiece, setReplacePiece] = useState<Piece | null>(null);
+  const [uploadingPieceId, setUploadingPieceId] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<string | null>(null);
 
   // Filtres
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -107,6 +114,33 @@ export default function PiecesList() {
   const handleAddNew = () => {
     setSelectedPiece(undefined);
     setIsFormOpen(true);
+  };
+
+  const handleImageClick = (e: React.MouseEvent, pieceId: string) => {
+    e.preventDefault();
+    uploadTargetRef.current = pieceId;
+    imageInputRef.current?.click();
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const pieceId = uploadTargetRef.current;
+    if (!file || !pieceId) return;
+    try {
+      setUploadingPieceId(pieceId);
+      await imagesApi.upload(pieceId, file);
+      toastSuccess("Photo ajoutée");
+      // Refresh just this piece's image by reloading data
+      const updated = await piecesApi.getAll();
+      setPieces(updated);
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toastError(error.message || "Erreur lors de l'upload");
+    } finally {
+      setUploadingPieceId(null);
+      uploadTargetRef.current = null;
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -435,60 +469,106 @@ export default function PiecesList() {
           </div>
         )}
 
+        {/* Hidden file input shared across all cards */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+
         {/* Liste des pièces */}
         <div className="flex-1 min-w-0">
           <div className={`grid gap-4 ${showFilters ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-            {filteredPieces.map((piece) => (
-              <Card key={piece.id} className="hover:shadow-md transition-shadow h-full bg-card">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <Link to={`/pieces/${piece.id}`} className="flex-1">
-                      <CardTitle className="text-lg hover:text-primary">{piece.nom}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">Réf: {piece.reference}</p>
-                    </Link>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={(e) => handleReplacePiece(e, piece)} title="Remplacer">
-                        <ArrowLeftRight className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={(e) => handleEditPiece(e, piece)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={(e) => handleDeletePiece(e, piece.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+            {filteredPieces.map((piece) => {
+              const thumbnail = piece.images?.[0]?.url;
+              const isUploading = uploadingPieceId === piece.id;
+              return (
+                <Card key={piece.id} className="hover:shadow-md transition-shadow h-full bg-card overflow-hidden">
+                  {/* Thumbnail */}
+                  <Link to={`/pieces/${piece.id}`} className="block">
+                    <div className="relative aspect-[4/3] bg-muted overflow-hidden group">
+                      {thumbnail ? (
+                        <img
+                          src={mediaUrl(thumbnail)}
+                          alt={piece.nom}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
+                          <ImageIcon className="h-10 w-10" />
+                        </div>
+                      )}
+                      {/* Upload overlay (canEdit only) */}
+                      {canEdit && (
+                        <button
+                          onClick={(e) => handleImageClick(e, piece.id)}
+                          disabled={isUploading}
+                          className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-center justify-center opacity-0 hover:opacity-100 group-hover:opacity-100"
+                        >
+                          {isUploading ? (
+                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                          ) : (
+                            <div className="bg-black/60 rounded-full p-2">
+                              <Camera className="h-5 w-5 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Marque:</span>
-                      <span className="font-medium">{piece.marque?.nom || "-"}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Catégorie:</span>
-                      <span className="font-medium">{piece.categorie?.nom || "-"}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Prix d'achat:</span>
-                      <span className="font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Fmg` : "-"}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Prix de vente:</span>
-                      <span className="font-medium">{piece.prixVente.toLocaleString()} Fmg</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Stock:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{piece.stock} unités</span>
-                        {piece.stock <= piece.stockMin && piece.stock > 0 && <Badge variant="warning">Faible</Badge>}
-                        {piece.stock === 0 && <Badge variant="destructive">Rupture</Badge>}
+                  </Link>
+
+                  <CardHeader className="pb-2 pt-3">
+                    <div className="flex items-start justify-between">
+                      <Link to={`/pieces/${piece.id}`} className="flex-1 min-w-0">
+                        <CardTitle className="text-base hover:text-primary truncate">{piece.nom}</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">Réf: {piece.reference}</p>
+                      </Link>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" onClick={(e) => handleReplacePiece(e, piece)} title="Remplacer">
+                          <ArrowLeftRight className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={(e) => handleEditPiece(e, piece)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={(e) => handleDeletePiece(e, piece.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Marque:</span>
+                        <span className="font-medium">{piece.marque?.nom || "-"}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Catégorie:</span>
+                        <span className="font-medium">{piece.categorie?.nom || "-"}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Prix d'achat:</span>
+                        <span className="font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Fmg` : "-"}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Prix de vente:</span>
+                        <span className="font-medium">{piece.prixVente.toLocaleString()} Fmg</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Stock:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{piece.stock} unités</span>
+                          {piece.stock <= piece.stockMin && piece.stock > 0 && <Badge variant="warning">Faible</Badge>}
+                          {piece.stock === 0 && <Badge variant="destructive">Rupture</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {filteredPieces.length === 0 && (

@@ -110,6 +110,7 @@ model User {
   nom       String
   prenom    String?
   telephone String?
+  photo     String?
   role      Role     @default(VENDEUR)
   actif     Boolean  @default(true)
   createdAt DateTime @default(now())

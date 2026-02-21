@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { boutiquesApi, authApi, Boutique, User } from "../lib/api";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -27,8 +27,12 @@ import {
   MapPin,
   Phone,
   Mail,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toaster";
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
+const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${API_BASE}${url}`);
 
 interface BoutiqueFormData {
   nom: string;
@@ -49,7 +53,7 @@ const emptyForm: BoutiqueFormData = {
 };
 
 export default function Boutiques() {
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
   const [boutiques, setBoutiques] = useState<Boutique[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +62,9 @@ export default function Boutiques() {
   const [formData, setFormData] = useState<BoutiqueFormData>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoTargetId, setLogoTargetId] = useState<string | null>(null);
 
   // Dialog assignation utilisateur
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
@@ -156,6 +163,23 @@ export default function Boutiques() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !logoTargetId) return;
+    try {
+      setUploadingLogo(logoTargetId);
+      await boutiquesApi.uploadLogo(logoTargetId, file);
+      toastSuccess("Logo mis à jour");
+      loadData();
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erreur d'upload");
+    } finally {
+      setUploadingLogo(null);
+      setLogoTargetId(null);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
   const getUsersForBoutique = (boutiqueId: string) => users.filter((u) => u.boutiqueId === boutiqueId);
 
   const getUnassignedOrOtherUsers = (boutiqueId: string) =>
@@ -189,8 +213,16 @@ export default function Boutiques() {
             <Card key={boutique.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Store className="h-5 w-5 text-slate-600" />
+                  <div className="flex items-center gap-3">
+                    {boutique.logo ? (
+                      <img
+                        src={mediaUrl(boutique.logo)}
+                        alt={boutique.nom}
+                        className="h-10 w-10 rounded object-contain border bg-white"
+                      />
+                    ) : (
+                      <Store className="h-5 w-5 text-slate-600" />
+                    )}
                     <div>
                       <CardTitle className="text-lg">{boutique.nom}</CardTitle>
                       {boutique.ville && (
@@ -263,6 +295,22 @@ export default function Boutiques() {
                     Assigner
                   </Button>
                   <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title="Changer le logo"
+                      disabled={uploadingLogo === boutique.id}
+                      onClick={() => {
+                        setLogoTargetId(boutique.id);
+                        logoInputRef.current?.click();
+                      }}
+                    >
+                      {uploadingLogo === boutique.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => openEditDialog(boutique)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -283,6 +331,15 @@ export default function Boutiques() {
           <p>Aucune boutique. Créez votre première boutique.</p>
         </div>
       )}
+
+      {/* Input logo caché */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleLogoUpload}
+        className="hidden"
+      />
 
       {/* Dialog Create/Edit Boutique */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -34,6 +34,7 @@ const devisSchema = z.object({
 
 const devisIncludes = {
   client: true,
+  boutique: true,
   items: { include: { piece: true } },
 } as const;
 

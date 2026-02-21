@@ -41,6 +41,7 @@ const pieceIncludes = {
   sousCategorie: true,
   fournisseur: true,
   emplacement: true,
+  images: { where: { principale: true }, take: 1, select: { url: true } },
 } as const;
 
 // Get all pieces
@@ -94,7 +95,7 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
         },
         historiquePrix: {
           orderBy: { dateChangement: "desc" },
-          take: 5,
+          take: 50,
         },
       },
     });
@@ -134,6 +135,16 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
     const piece = await prisma.piece.create({
       data: { ...data, boutiqueId: req.boutiqueId! },
       include: pieceIncludes,
+    });
+
+    // Enregistrer le prix initial dans l'historique
+    await prisma.historiquePrix.create({
+      data: {
+        pieceId: piece.id,
+        prixVente: data.prixVente,
+        prixAchat: data.prixAchat ?? null,
+        motif: "Prix initial",
+      },
     });
 
     await logActivity(req.user!.userId, "CREATE", "PIECE", piece.id, `Création de la pièce "${piece.nom}" (${piece.reference})`);

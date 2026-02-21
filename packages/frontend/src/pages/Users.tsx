@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { authApi, User } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -14,11 +14,14 @@ import {
   DialogTitle,
 } from '../components/ui/Dialog';
 import { Select } from '../components/ui/Select';
-import { Plus, Pencil, Trash2, User as UserIcon, Shield, Eye, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, User as UserIcon, Shield, Eye, Loader2, Camera } from 'lucide-react';
 import { useToast } from "@/components/ui/Toaster";
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3001";
+const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${API_BASE}${url}`);
+
 export default function Users() {
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -31,7 +34,9 @@ export default function Users() {
     role: 'VENDEUR' as 'SUPER_ADMIN' | 'ADMIN' | 'VENDEUR' | 'LECTEUR'
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const loadUsers = async () => {
     try {
@@ -102,6 +107,24 @@ export default function Users() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingUser) return;
+    try {
+      setUploadingAvatar(true);
+      const updated = await authApi.uploadAvatar(editingUser.id, file);
+      setEditingUser(updated);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, photo: updated.photo } : u)));
+      toastSuccess?.('Photo mise à jour');
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toastError(error.message || "Erreur lors de l'upload");
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
   const handleDelete = async (user: User) => {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.nom} ?`)) {
       return;
@@ -154,21 +177,33 @@ export default function Users() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
-          <Card key={user.id}>
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">
+          <Card key={user.id} className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
+                <div className="relative shrink-0">
+                  <div className="h-12 w-12 rounded-full overflow-hidden bg-muted border-2 border-background shadow-sm">
+                    {user.photo ? (
+                      <img src={mediaUrl(user.photo)} alt={user.nom} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-semibold text-lg">
+                        {user.nom.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-base truncate">
                     {user.nom} {user.prenom}
                   </CardTitle>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
                 {getRoleBadge(user.role)}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   Créé le {new Date(user.createdAt).toLocaleDateString('fr-FR')}
                 </p>
                 <div className="flex gap-2">
@@ -199,6 +234,42 @@ export default function Users() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Avatar upload (edit only) */}
+            {editingUser && (
+              <div className="flex justify-center">
+                <div className="relative group">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                  <div className="h-20 w-20 rounded-full overflow-hidden bg-muted border-2 border-muted shadow-md">
+                    {editingUser.photo ? (
+                      <img src={mediaUrl(editingUser.photo)} alt={editingUser.nom} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-2xl">
+                        {editingUser.nom.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 className="h-6 w-6 text-white animate-spin" />
+                    ) : (
+                      <Camera className="h-6 w-6 text-white" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md text-sm">
                 {error}

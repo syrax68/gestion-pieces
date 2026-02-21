@@ -1,36 +1,15 @@
 import { Router, Response } from "express";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { prisma } from "../index.js";
 import { authenticate, isVendeurOrAdmin, AuthRequest } from "../middleware/auth.js";
 import { injectBoutique } from "../middleware/tenant.js";
 import { handleRouteError } from "../utils/handleError.js";
 import { ensureBoutique } from "../utils/ensureBoutique.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, "../../uploads");
-
-// Ensure uploads directory exists
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
+import { uploadToR2, deleteFromR2 } from "../lib/r2.js";
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
     const allowed = [".jpg", ".jpeg", ".png", ".webp"];
@@ -58,12 +37,14 @@ router.post("/:pieceId", isVendeurOrAdmin, upload.single("image"), async (req: A
       return res.status(400).json({ error: "Aucun fichier fourni" });
     }
 
+    const url = await uploadToR2(req.file.buffer, req.file.originalname, req.file.mimetype, "pieces/");
+
     // Count existing images for order
     const count = await prisma.image.count({ where: { pieceId } });
 
     const image = await prisma.image.create({
       data: {
-        url: `/uploads/${req.file.filename}`,
+        url,
         alt: piece!.nom,
         ordre: count,
         principale: count === 0, // First image is principal
@@ -136,11 +117,8 @@ router.delete("/:imageId", isVendeurOrAdmin, async (req: AuthRequest, res: Respo
     const piece = await prisma.piece.findUnique({ where: { id: image.pieceId } });
     if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
 
-    // Delete file from disk
-    const filePath = path.join(__dirname, "../..", image.url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    // Delete from R2 (or legacy local storage — deleteFromR2 ignores non-R2 URLs)
+    await deleteFromR2(image.url);
 
     await prisma.image.delete({ where: { id: imageId } });
 
