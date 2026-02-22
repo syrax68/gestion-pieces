@@ -7,46 +7,571 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// BOUTIQUE (MULTI-TENANT)
-// ============================================
-
 model Boutique {
-  id          String   @id @default(cuid())
-  nom         String
-  adresse     String?
-  ville       String?
-  telephone   String?
-  email       String?
-  logo        String?
-  siret       String?
-  actif       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  users          User[]
-  pieces         Piece[]
-  categories     Categorie[]
-  sousCategories SousCategorie[]
-  marques        Marque[]
-  emplacements   Emplacement[]
-  fournisseurs   Fournisseur[]
-  clients        Client[]
+  id             String           @id @default(cuid())
+  nom            String
+  adresse        String?
+  ville          String?
+  telephone      String?
+  email          String?
+  logo           String?
+  siret          String?
+  actif          Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   achats         Achat[]
-  factures       Facture[]
-  devis          Devis[]
-  avoirs         Avoir[]
-  inventaires    Inventaire[]
-  mouvements     MouvementStock[]
   activityLogs   ActivityLog[]
+  avoirs         Avoir[]
+  categories     Categorie[]
+  clients        Client[]
+  devis          Devis[]
+  emplacements   Emplacement[]
+  factures       Facture[]
+  fournisseurs   Fournisseur[]
+  inventaires    Inventaire[]
+  marques        Marque[]
+  mouvements     MouvementStock[]
+  pieces         Piece[]
+  sousCategories SousCategorie[]
+  users          User[]
 
   @@index([nom])
 }
 
-// ============================================
-// ENUMS
-// ============================================
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  password     String
+  nom          String
+  prenom       String?
+  telephone    String?
+  photo        String?
+  role         Role             @default(VENDEUR)
+  actif        Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  boutiqueId   String?
+  activityLogs ActivityLog[]
+  devis        Devis[]          @relation("DevisCreateur")
+  factures     Facture[]        @relation("FactureCreateur")
+  inventaires  Inventaire[]
+  mouvements   MouvementStock[]
+  boutique     Boutique?        @relation(fields: [boutiqueId], references: [id])
+
+  @@index([email])
+  @@index([role])
+  @@index([boutiqueId])
+}
+
+model Piece {
+  id                 String                @id @default(cuid())
+  reference          String                @unique
+  codeBarres         String?               @unique
+  nom                String
+  description        String?
+  prixVente          Decimal               @db.Decimal(10, 2)
+  prixAchat          Decimal?              @db.Decimal(10, 2)
+  tauxTVA            Decimal               @default(0) @db.Decimal(5, 2)
+  stock              Int                   @default(0)
+  stockMin           Int                   @default(0)
+  stockMax           Int?
+  poids              Decimal?              @db.Decimal(10, 3)
+  dimensions         String?
+  actif              Boolean               @default(true)
+  enPromotion        Boolean               @default(false)
+  prixPromo          Decimal?              @db.Decimal(10, 2)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  boutiqueId         String?
+  marqueId           String?
+  categorieId        String?
+  sousCategorieId    String?
+  fournisseurId      String?
+  emplacementId      String?
+  achatItems         AchatItem[]
+  avoirItems         AvoirItem[]
+  devisItems         DevisItem[]
+  factureItems       FactureItem[]
+  historiquePrix     HistoriquePrix[]
+  images             Image[]
+  inventaireItems    InventaireItem[]
+  mouvements         MouvementStock[]
+  boutique           Boutique?             @relation(fields: [boutiqueId], references: [id])
+  categorie          Categorie?            @relation(fields: [categorieId], references: [id])
+  emplacement        Emplacement?          @relation(fields: [emplacementId], references: [id])
+  fournisseur        Fournisseur?          @relation(fields: [fournisseurId], references: [id])
+  marque             Marque?               @relation(fields: [marqueId], references: [id])
+  sousCategorie      SousCategorie?        @relation(fields: [sousCategorieId], references: [id])
+  fournisseurs       PieceFournisseur[]
+  modelesCompatibles PieceModeleVehicule[]
+
+  @@index([reference])
+  @@index([codeBarres])
+  @@index([nom])
+  @@index([categorieId])
+  @@index([marqueId])
+  @@index([stock])
+  @@index([boutiqueId])
+}
+
+model Categorie {
+  id             String          @id @default(cuid())
+  nom            String          @unique
+  description    String?
+  icone          String?
+  ordre          Int             @default(0)
+  actif          Boolean         @default(true)
+  boutiqueId     String?
+  boutique       Boutique?       @relation(fields: [boutiqueId], references: [id])
+  pieces         Piece[]
+  sousCategories SousCategorie[]
+
+  @@index([nom])
+  @@index([boutiqueId])
+}
+
+model SousCategorie {
+  id          String    @id @default(cuid())
+  nom         String
+  description String?
+  ordre       Int       @default(0)
+  actif       Boolean   @default(true)
+  boutiqueId  String?
+  categorieId String
+  pieces      Piece[]
+  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+
+  @@unique([categorieId, nom])
+  @@index([categorieId])
+  @@index([boutiqueId])
+}
+
+model Marque {
+  id              String           @id @default(cuid())
+  nom             String           @unique
+  logo            String?
+  description     String?
+  siteWeb         String?
+  actif           Boolean          @default(true)
+  boutiqueId      String?
+  boutique        Boutique?        @relation(fields: [boutiqueId], references: [id])
+  modelesVehicule ModeleVehicule[]
+  pieces          Piece[]
+
+  @@index([nom])
+  @@index([boutiqueId])
+}
+
+model Image {
+  id         String   @id @default(cuid())
+  url        String
+  alt        String?
+  ordre      Int      @default(0)
+  principale Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  pieceId    String
+  piece      Piece    @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+}
+
+model ModeleVehicule {
+  id                String                @id @default(cuid())
+  nom               String
+  anneeDebut        Int?
+  anneeFin          Int?
+  cylindree         Int?
+  type              TypeVehicule          @default(MOTO)
+  actif             Boolean               @default(true)
+  marqueId          String
+  marque            Marque                @relation(fields: [marqueId], references: [id])
+  piecesCompatibles PieceModeleVehicule[]
+
+  @@unique([marqueId, nom, anneeDebut])
+  @@index([marqueId])
+  @@index([nom])
+}
+
+model PieceModeleVehicule {
+  id       String         @id @default(cuid())
+  notes    String?
+  pieceId  String
+  modeleId String
+  modele   ModeleVehicule @relation(fields: [modeleId], references: [id], onDelete: Cascade)
+  piece    Piece          @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@unique([pieceId, modeleId])
+  @@index([pieceId])
+  @@index([modeleId])
+}
+
+model Emplacement {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  nom         String?
+  zone        String?
+  description String?
+  actif       Boolean   @default(true)
+  boutiqueId  String?
+  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
+  pieces      Piece[]
+
+  @@index([code])
+  @@index([zone])
+  @@index([boutiqueId])
+}
+
+model MouvementStock {
+  id            String        @id @default(cuid())
+  type          TypeMouvement
+  quantite      Int
+  quantiteAvant Int?
+  quantiteApres Int?
+  motif         String
+  reference     String?
+  date          DateTime      @default(now())
+  boutiqueId    String?
+  pieceId       String
+  userId        String?
+  boutique      Boutique?     @relation(fields: [boutiqueId], references: [id])
+  piece         Piece         @relation(fields: [pieceId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
+
+  @@index([pieceId])
+  @@index([date])
+  @@index([type])
+  @@index([boutiqueId])
+}
+
+model Inventaire {
+  id         String           @id @default(cuid())
+  numero     String           @unique
+  dateDebut  DateTime         @default(now())
+  dateFin    DateTime?
+  statut     StatutInventaire @default(EN_COURS)
+  notes      String?
+  ecartTotal Int              @default(0)
+  boutiqueId String?
+  userId     String
+  boutique   Boutique?        @relation(fields: [boutiqueId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+  items      InventaireItem[]
+
+  @@index([statut])
+  @@index([dateDebut])
+  @@index([boutiqueId])
+}
+
+model InventaireItem {
+  id             String     @id @default(cuid())
+  stockTheorique Int
+  stockPhysique  Int?
+  ecart          Int?
+  notes          String?
+  valide         Boolean    @default(false)
+  inventaireId   String
+  pieceId        String
+  inventaire     Inventaire @relation(fields: [inventaireId], references: [id], onDelete: Cascade)
+  piece          Piece      @relation(fields: [pieceId], references: [id])
+
+  @@unique([inventaireId, pieceId])
+  @@index([inventaireId])
+}
+
+model Fournisseur {
+  id             String             @id @default(cuid())
+  code           String?            @unique
+  nom            String
+  contact        String?
+  email          String?
+  telephone      String?
+  adresse        String?
+  ville          String?
+  codePostal     String?
+  pays           String             @default("France")
+  siret          String?
+  tva            String?
+  delaiLivraison Int?
+  conditions     String?
+  notes          String?
+  actif          Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  boutiqueId     String?
+  achats         Achat[]
+  boutique       Boutique?          @relation(fields: [boutiqueId], references: [id])
+  pieces         Piece[]
+  piecePrix      PieceFournisseur[]
+
+  @@index([nom])
+  @@index([email])
+  @@index([boutiqueId])
+}
+
+model PieceFournisseur {
+  id                   String      @id @default(cuid())
+  referenceFournisseur String?
+  prixAchat            Decimal     @db.Decimal(10, 2)
+  delaiLivraison       Int?
+  quantiteMin          Int         @default(1)
+  principal            Boolean     @default(false)
+  pieceId              String
+  fournisseurId        String
+  fournisseur          Fournisseur @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
+  piece                Piece       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@unique([pieceId, fournisseurId])
+  @@index([pieceId])
+  @@index([fournisseurId])
+}
+
+model Achat {
+  id            String        @id @default(cuid())
+  numero        String        @unique
+  numeroFacture String?
+  dateAchat     DateTime      @default(now())
+  dateFacture   DateTime?
+  sousTotal     Decimal       @db.Decimal(10, 2)
+  tva           Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  statut        StatutFacture @default(EN_ATTENTE)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  boutiqueId    String?
+  fournisseurId String?
+  boutique      Boutique?     @relation(fields: [boutiqueId], references: [id])
+  fournisseur   Fournisseur?  @relation(fields: [fournisseurId], references: [id])
+  items         AchatItem[]
+
+  @@index([numero])
+  @@index([statut])
+  @@index([dateAchat])
+  @@index([boutiqueId])
+}
+
+model AchatItem {
+  id           String  @id @default(cuid())
+  quantite     Int
+  prixUnitaire Decimal @db.Decimal(10, 2)
+  tva          Decimal @default(0) @db.Decimal(5, 2)
+  total        Decimal @db.Decimal(10, 2)
+  achatId      String
+  pieceId      String
+  achat        Achat   @relation(fields: [achatId], references: [id], onDelete: Cascade)
+  piece        Piece   @relation(fields: [pieceId], references: [id])
+
+  @@index([achatId])
+  @@index([pieceId])
+}
+
+model Client {
+  id              String    @id @default(cuid())
+  code            String?   @unique
+  type            String    @default("particulier")
+  nom             String
+  prenom          String?
+  entreprise      String?
+  email           String?
+  telephone       String?
+  telephoneMobile String?
+  adresse         String?
+  ville           String?
+  codePostal      String?
+  pays            String    @default("France")
+  siret           String?
+  tva             String?
+  notes           String?
+  actif           Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  boutiqueId      String?
+  avoirs          Avoir[]
+  boutique        Boutique? @relation(fields: [boutiqueId], references: [id])
+  devis           Devis[]
+  factures        Facture[]
+
+  @@index([nom])
+  @@index([email])
+  @@index([telephone])
+  @@index([boutiqueId])
+}
+
+model Devis {
+  id             String      @id @default(cuid())
+  numero         String      @unique
+  dateDevis      DateTime    @default(now())
+  dateValidite   DateTime
+  statut         StatutDevis @default(BROUILLON)
+  sousTotal      Decimal     @db.Decimal(10, 2)
+  remise         Decimal     @default(0) @db.Decimal(10, 2)
+  remisePourcent Decimal     @default(0) @db.Decimal(5, 2)
+  tva            Decimal     @db.Decimal(10, 2)
+  total          Decimal     @db.Decimal(10, 2)
+  conditions     String?
+  notes          String?
+  notesInternes  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  boutiqueId     String?
+  clientId       String?
+  createurId     String
+  boutique       Boutique?   @relation(fields: [boutiqueId], references: [id])
+  client         Client?     @relation(fields: [clientId], references: [id])
+  createur       User        @relation("DevisCreateur", fields: [createurId], references: [id])
+  items          DevisItem[]
+  factures       Facture[]   @relation("DevisFacture")
+
+  @@index([numero])
+  @@index([statut])
+  @@index([dateDevis])
+  @@index([clientId])
+  @@index([boutiqueId])
+}
+
+model DevisItem {
+  id           String  @id @default(cuid())
+  designation  String
+  description  String?
+  quantite     Int
+  prixUnitaire Decimal @db.Decimal(10, 2)
+  remise       Decimal @default(0) @db.Decimal(5, 2)
+  tva          Decimal @default(0) @db.Decimal(5, 2)
+  total        Decimal @db.Decimal(10, 2)
+  devisId      String
+  pieceId      String?
+  devis        Devis   @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  piece        Piece?  @relation(fields: [pieceId], references: [id])
+
+  @@index([devisId])
+}
+
+model Facture {
+  id              String        @id @default(cuid())
+  numero          String        @unique
+  dateFacture     DateTime      @default(now())
+  dateEcheance    DateTime?
+  sousTotal       Decimal       @db.Decimal(10, 2)
+  remise          Decimal       @default(0) @db.Decimal(10, 2)
+  remisePourcent  Decimal       @default(0) @db.Decimal(5, 2)
+  tva             Decimal       @db.Decimal(10, 2)
+  total           Decimal       @db.Decimal(10, 2)
+  montantPaye     Decimal       @default(0) @db.Decimal(10, 2)
+  statut          StatutFacture @default(BROUILLON)
+  methodePaiement String?
+  datePaiement    DateTime?
+  notes           String?
+  notesInternes   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  boutiqueId      String?
+  clientId        String?
+  createurId      String
+  devisId         String?
+  avoirs          Avoir[]
+  boutique        Boutique?     @relation(fields: [boutiqueId], references: [id])
+  client          Client?       @relation(fields: [clientId], references: [id])
+  createur        User          @relation("FactureCreateur", fields: [createurId], references: [id])
+  devis           Devis?        @relation("DevisFacture", fields: [devisId], references: [id])
+  items           FactureItem[]
+
+  @@index([numero])
+  @@index([statut])
+  @@index([dateFacture])
+  @@index([clientId])
+  @@index([boutiqueId])
+}
+
+model FactureItem {
+  id           String  @id @default(cuid())
+  designation  String
+  description  String?
+  quantite     Int
+  prixUnitaire Decimal @db.Decimal(10, 2)
+  remise       Decimal @default(0) @db.Decimal(5, 2)
+  tva          Decimal @default(0) @db.Decimal(5, 2)
+  total        Decimal @db.Decimal(10, 2)
+  factureId    String
+  pieceId      String?
+  facture      Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  piece        Piece?  @relation(fields: [pieceId], references: [id])
+
+  @@index([factureId])
+}
+
+model Avoir {
+  id         String      @id @default(cuid())
+  numero     String      @unique
+  dateAvoir  DateTime    @default(now())
+  motif      String
+  sousTotal  Decimal     @db.Decimal(10, 2)
+  tva        Decimal     @db.Decimal(10, 2)
+  total      Decimal     @db.Decimal(10, 2)
+  statut     StatutAvoir @default(EN_ATTENTE)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  boutiqueId String?
+  clientId   String?
+  factureId  String?
+  boutique   Boutique?   @relation(fields: [boutiqueId], references: [id])
+  client     Client?     @relation(fields: [clientId], references: [id])
+  facture    Facture?    @relation(fields: [factureId], references: [id])
+  items      AvoirItem[]
+
+  @@index([numero])
+  @@index([statut])
+  @@index([clientId])
+  @@index([boutiqueId])
+}
+
+model AvoirItem {
+  id           String  @id @default(cuid())
+  designation  String
+  quantite     Int
+  prixUnitaire Decimal @db.Decimal(10, 2)
+  tva          Decimal @default(0) @db.Decimal(5, 2)
+  total        Decimal @db.Decimal(10, 2)
+  retourStock  Boolean @default(true)
+  avoirId      String
+  pieceId      String?
+  avoir        Avoir   @relation(fields: [avoirId], references: [id], onDelete: Cascade)
+  piece        Piece?  @relation(fields: [pieceId], references: [id])
+
+  @@index([avoirId])
+}
+
+model ActivityLog {
+  id         String    @id @default(cuid())
+  action     String
+  entity     String
+  entityId   String?
+  details    String?
+  userId     String
+  boutiqueId String?
+  createdAt  DateTime  @default(now())
+  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([entity])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([boutiqueId])
+}
+
+model HistoriquePrix {
+  id             String   @id @default(cuid())
+  prixVente      Decimal  @db.Decimal(10, 2)
+  prixAchat      Decimal? @db.Decimal(10, 2)
+  dateChangement DateTime @default(now())
+  motif          String?
+  pieceId        String
+  piece          Piece    @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+  @@index([dateChangement])
+}
 
 enum Role {
   SUPER_ADMIN
@@ -97,615 +622,4 @@ enum StatutInventaire {
   EN_COURS
   VALIDE
   ANNULE
-}
-
-// ============================================
-// UTILISATEURS
-// ============================================
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  nom       String
-  prenom    String?
-  telephone String?
-  photo     String?
-  role      Role     @default(VENDEUR)
-  actif     Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  mouvements    MouvementStock[]
-  factures      Facture[]        @relation("FactureCreateur")
-  devis         Devis[]          @relation("DevisCreateur")
-  inventaires   Inventaire[]
-  activityLogs  ActivityLog[]
-
-  @@index([email])
-  @@index([role])
-  @@index([boutiqueId])
-}
-
-// ============================================
-// CATALOGUE PRODUITS
-// ============================================
-
-model Piece {
-  id             String   @id @default(cuid())
-  reference      String   @unique
-  codeBarres     String?  @unique
-  nom            String
-  description    String?
-
-  // Prix
-  prixVente      Decimal  @db.Decimal(10, 2)
-  prixAchat      Decimal? @db.Decimal(10, 2)
-  tauxTVA        Decimal  @default(0) @db.Decimal(5, 2)
-
-  // Stock
-  stock          Int      @default(0)
-  stockMin       Int      @default(0)
-  stockMax       Int?
-
-  // Caractéristiques
-  poids          Decimal? @db.Decimal(10, 3)  // en kg
-  dimensions     String?                        // ex: "10x5x3 cm"
-
-  // Statut
-  actif          Boolean  @default(true)
-  enPromotion    Boolean  @default(false)
-  prixPromo      Decimal? @db.Decimal(10, 2)
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  boutiqueId     String?
-  boutique       Boutique?     @relation(fields: [boutiqueId], references: [id])
-  marqueId       String?
-  marque         Marque?       @relation(fields: [marqueId], references: [id])
-  categorieId    String?
-  categorie      Categorie?    @relation(fields: [categorieId], references: [id])
-  sousCategorieId String?
-  sousCategorie  SousCategorie? @relation(fields: [sousCategorieId], references: [id])
-  fournisseurId  String?
-  fournisseur    Fournisseur?  @relation(fields: [fournisseurId], references: [id])
-  emplacementId  String?
-  emplacement    Emplacement?  @relation(fields: [emplacementId], references: [id])
-
-  // Relations multiples
-  images           Image[]
-  modelesCompatibles PieceModeleVehicule[]
-  achatItems       AchatItem[]
-  factureItems     FactureItem[]
-  devisItems       DevisItem[]
-  avoirItems       AvoirItem[]
-  mouvements       MouvementStock[]
-  inventaireItems  InventaireItem[]
-  historiquePrix   HistoriquePrix[]
-  fournisseurs     PieceFournisseur[]
-
-  @@index([reference])
-  @@index([codeBarres])
-  @@index([nom])
-  @@index([categorieId])
-  @@index([marqueId])
-  @@index([stock])
-  @@index([boutiqueId])
-}
-
-model Categorie {
-  id          String  @id @default(cuid())
-  nom         String  @unique
-  description String?
-  icone       String?
-  ordre       Int     @default(0)
-  actif       Boolean @default(true)
-
-  boutiqueId  String?
-  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  pieces         Piece[]
-  sousCategories SousCategorie[]
-
-  @@index([nom])
-  @@index([boutiqueId])
-}
-
-model SousCategorie {
-  id          String  @id @default(cuid())
-  nom         String
-  description String?
-  ordre       Int     @default(0)
-  actif       Boolean @default(true)
-
-  boutiqueId  String?
-  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
-  categorieId String
-  categorie   Categorie @relation(fields: [categorieId], references: [id])
-  pieces      Piece[]
-
-  @@unique([categorieId, nom])
-  @@index([categorieId])
-  @@index([boutiqueId])
-}
-
-model Marque {
-  id          String  @id @default(cuid())
-  nom         String  @unique
-  logo        String?
-  description String?
-  siteWeb     String?
-  actif       Boolean @default(true)
-
-  boutiqueId  String?
-  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  pieces          Piece[]
-  modelesVehicule ModeleVehicule[]
-
-  @@index([nom])
-  @@index([boutiqueId])
-}
-
-model Image {
-  id        String   @id @default(cuid())
-  url       String
-  alt       String?
-  ordre     Int      @default(0)
-  principale Boolean @default(false)
-  createdAt DateTime @default(now())
-
-  pieceId String
-  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-
-  @@index([pieceId])
-}
-
-// ============================================
-// VÉHICULES COMPATIBLES
-// ============================================
-
-model ModeleVehicule {
-  id           String       @id @default(cuid())
-  nom          String                           // ex: "MT-07"
-  anneeDebut   Int?                             // ex: 2018
-  anneeFin     Int?                             // ex: 2023 (null = encore produit)
-  cylindree    Int?                             // en cc
-  type         TypeVehicule @default(MOTO)
-  actif        Boolean      @default(true)
-
-  marqueId String
-  marque   Marque @relation(fields: [marqueId], references: [id])
-
-  piecesCompatibles PieceModeleVehicule[]
-
-  @@unique([marqueId, nom, anneeDebut])
-  @@index([marqueId])
-  @@index([nom])
-}
-
-model PieceModeleVehicule {
-  id      String @id @default(cuid())
-  notes   String?
-
-  pieceId   String
-  piece     Piece          @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-  modeleId  String
-  modele    ModeleVehicule @relation(fields: [modeleId], references: [id], onDelete: Cascade)
-
-  @@unique([pieceId, modeleId])
-  @@index([pieceId])
-  @@index([modeleId])
-}
-
-// ============================================
-// STOCK & ENTREPÔT
-// ============================================
-
-model Emplacement {
-  id          String  @id @default(cuid())
-  code        String  @unique    // ex: "A1-B3"
-  nom         String?            // ex: "Allée A, Étagère 1, Niveau B3"
-  zone        String?            // ex: "Zone A"
-  description String?
-  actif       Boolean @default(true)
-
-  boutiqueId  String?
-  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  pieces Piece[]
-
-  @@index([code])
-  @@index([zone])
-  @@index([boutiqueId])
-}
-
-model MouvementStock {
-  id            String        @id @default(cuid())
-  type          TypeMouvement
-  quantite      Int
-  quantiteAvant Int?
-  quantiteApres Int?
-  motif         String
-  reference     String?                          // N° facture, achat, etc.
-  date          DateTime      @default(now())
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  pieceId String
-  piece   Piece  @relation(fields: [pieceId], references: [id])
-  userId  String?
-  user    User?  @relation(fields: [userId], references: [id])
-
-  @@index([pieceId])
-  @@index([date])
-  @@index([type])
-  @@index([boutiqueId])
-}
-
-model Inventaire {
-  id          String           @id @default(cuid())
-  numero      String           @unique
-  dateDebut   DateTime         @default(now())
-  dateFin     DateTime?
-  statut      StatutInventaire @default(EN_COURS)
-  notes       String?
-  ecartTotal  Int              @default(0)
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  items InventaireItem[]
-
-  @@index([statut])
-  @@index([dateDebut])
-  @@index([boutiqueId])
-}
-
-model InventaireItem {
-  id             String  @id @default(cuid())
-  stockTheorique Int
-  stockPhysique  Int?
-  ecart          Int?
-  notes          String?
-  valide         Boolean @default(false)
-
-  inventaireId String
-  inventaire   Inventaire @relation(fields: [inventaireId], references: [id], onDelete: Cascade)
-  pieceId      String
-  piece        Piece      @relation(fields: [pieceId], references: [id])
-
-  @@unique([inventaireId, pieceId])
-  @@index([inventaireId])
-}
-
-// ============================================
-// FOURNISSEURS & ACHATS
-// ============================================
-
-model Fournisseur {
-  id            String  @id @default(cuid())
-  code          String? @unique
-  nom           String
-  contact       String?
-  email         String?
-  telephone     String?
-  adresse       String?
-  ville         String?
-  codePostal    String?
-  pays          String  @default("France")
-  siret         String?
-  tva           String?                         // N° TVA intracommunautaire
-  delaiLivraison Int?                           // en jours
-  conditions    String?                         // Conditions de paiement
-  notes         String?
-  actif         Boolean @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  boutiqueId   String?
-  boutique     Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  pieces       Piece[]
-  achats       Achat[]
-  piecePrix    PieceFournisseur[]
-
-  @@index([nom])
-  @@index([email])
-  @@index([boutiqueId])
-}
-
-model PieceFournisseur {
-  id              String  @id @default(cuid())
-  referenceFournisseur String?
-  prixAchat       Decimal @db.Decimal(10, 2)
-  delaiLivraison  Int?
-  quantiteMin     Int     @default(1)
-  principal       Boolean @default(false)
-
-  pieceId       String
-  piece         Piece       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-  fournisseurId String
-  fournisseur   Fournisseur @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
-
-  @@unique([pieceId, fournisseurId])
-  @@index([pieceId])
-  @@index([fournisseurId])
-}
-
-model Achat {
-  id           String        @id @default(cuid())
-  numero       String        @unique
-  numeroFacture String?                         // N° facture fournisseur
-  dateAchat    DateTime      @default(now())
-  dateFacture  DateTime?
-  sousTotal    Decimal       @db.Decimal(10, 2)
-  tva          Decimal       @default(0) @db.Decimal(10, 2)
-  total        Decimal       @db.Decimal(10, 2)
-  statut       StatutFacture @default(EN_ATTENTE)
-  notes        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  boutiqueId    String?
-  boutique      Boutique? @relation(fields: [boutiqueId], references: [id])
-  fournisseurId String?
-  fournisseur   Fournisseur? @relation(fields: [fournisseurId], references: [id])
-
-  items AchatItem[]
-
-  @@index([numero])
-  @@index([statut])
-  @@index([dateAchat])
-  @@index([boutiqueId])
-}
-
-model AchatItem {
-  id           String  @id @default(cuid())
-  quantite     Int
-  prixUnitaire Decimal @db.Decimal(10, 2)
-  tva          Decimal @default(0) @db.Decimal(5, 2)
-  total        Decimal @db.Decimal(10, 2)
-
-  achatId String
-  achat   Achat  @relation(fields: [achatId], references: [id], onDelete: Cascade)
-  pieceId String
-  piece   Piece  @relation(fields: [pieceId], references: [id])
-
-  @@index([achatId])
-  @@index([pieceId])
-}
-
-// ============================================
-// CLIENTS & VENTES
-// ============================================
-
-model Client {
-  id            String  @id @default(cuid())
-  code          String? @unique
-  type          String  @default("particulier")  // particulier, professionnel
-  nom           String
-  prenom        String?
-  entreprise    String?
-  email         String?
-  telephone     String?
-  telephoneMobile String?
-  adresse       String?
-  ville         String?
-  codePostal    String?
-  pays          String  @default("France")
-  siret         String?
-  tva           String?
-  notes         String?
-  actif         Boolean @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-
-  factures Facture[]
-  devis    Devis[]
-  avoirs   Avoir[]
-
-  @@index([nom])
-  @@index([email])
-  @@index([telephone])
-  @@index([boutiqueId])
-}
-
-model Devis {
-  id              String      @id @default(cuid())
-  numero          String      @unique
-  dateDevis       DateTime    @default(now())
-  dateValidite    DateTime                        // Date d'expiration
-  statut          StatutDevis @default(BROUILLON)
-  sousTotal       Decimal     @db.Decimal(10, 2)
-  remise          Decimal     @default(0) @db.Decimal(10, 2)
-  remisePourcent  Decimal     @default(0) @db.Decimal(5, 2)
-  tva             Decimal     @db.Decimal(10, 2)
-  total           Decimal     @db.Decimal(10, 2)
-  conditions      String?
-  notes           String?
-  notesInternes   String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  clientId String?
-  client   Client? @relation(fields: [clientId], references: [id])
-  createurId String
-  createur   User    @relation("DevisCreateur", fields: [createurId], references: [id])
-
-  items    DevisItem[]
-  factures Facture[]   @relation("DevisFacture")
-
-  @@index([numero])
-  @@index([statut])
-  @@index([dateDevis])
-  @@index([clientId])
-  @@index([boutiqueId])
-}
-
-model DevisItem {
-  id           String  @id @default(cuid())
-  designation  String
-  description  String?
-  quantite     Int
-  prixUnitaire Decimal @db.Decimal(10, 2)
-  remise       Decimal @default(0) @db.Decimal(5, 2)
-  tva          Decimal @default(0) @db.Decimal(5, 2)
-  total        Decimal @db.Decimal(10, 2)
-
-  devisId String
-  devis   Devis  @relation(fields: [devisId], references: [id], onDelete: Cascade)
-  pieceId String?
-  piece   Piece? @relation(fields: [pieceId], references: [id])
-
-  @@index([devisId])
-}
-
-model Facture {
-  id              String        @id @default(cuid())
-  numero          String        @unique
-  dateFacture     DateTime      @default(now())
-  dateEcheance    DateTime?
-  sousTotal       Decimal       @db.Decimal(10, 2)
-  remise          Decimal       @default(0) @db.Decimal(10, 2)
-  remisePourcent  Decimal       @default(0) @db.Decimal(5, 2)
-  tva             Decimal       @db.Decimal(10, 2)
-  total           Decimal       @db.Decimal(10, 2)
-  montantPaye     Decimal       @default(0) @db.Decimal(10, 2)
-  statut          StatutFacture @default(BROUILLON)
-  methodePaiement String?
-  datePaiement    DateTime?
-  notes           String?
-  notesInternes   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  clientId   String?
-  client     Client?  @relation(fields: [clientId], references: [id])
-  createurId String
-  createur   User     @relation("FactureCreateur", fields: [createurId], references: [id])
-  devisId    String?
-  devis      Devis?   @relation("DevisFacture", fields: [devisId], references: [id])
-
-  items  FactureItem[]
-  avoirs Avoir[]
-
-  @@index([numero])
-  @@index([statut])
-  @@index([dateFacture])
-  @@index([clientId])
-  @@index([boutiqueId])
-}
-
-model FactureItem {
-  id           String  @id @default(cuid())
-  designation  String
-  description  String?
-  quantite     Int
-  prixUnitaire Decimal @db.Decimal(10, 2)
-  remise       Decimal @default(0) @db.Decimal(5, 2)
-  tva          Decimal @default(0) @db.Decimal(5, 2)
-  total        Decimal @db.Decimal(10, 2)
-
-  factureId String
-  facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
-  pieceId   String?
-  piece     Piece?  @relation(fields: [pieceId], references: [id])
-
-  @@index([factureId])
-}
-
-model Avoir {
-  id          String      @id @default(cuid())
-  numero      String      @unique
-  dateAvoir   DateTime    @default(now())
-  motif       String
-  sousTotal   Decimal     @db.Decimal(10, 2)
-  tva         Decimal     @db.Decimal(10, 2)
-  total       Decimal     @db.Decimal(10, 2)
-  statut      StatutAvoir @default(EN_ATTENTE)
-  notes       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  clientId  String?
-  client    Client?  @relation(fields: [clientId], references: [id])
-  factureId String?
-  facture   Facture? @relation(fields: [factureId], references: [id])
-
-  items AvoirItem[]
-
-  @@index([numero])
-  @@index([statut])
-  @@index([clientId])
-  @@index([boutiqueId])
-}
-
-model AvoirItem {
-  id           String  @id @default(cuid())
-  designation  String
-  quantite     Int
-  prixUnitaire Decimal @db.Decimal(10, 2)
-  tva          Decimal @default(0) @db.Decimal(5, 2)
-  total        Decimal @db.Decimal(10, 2)
-  retourStock  Boolean @default(true)
-
-  avoirId String
-  avoir   Avoir  @relation(fields: [avoirId], references: [id], onDelete: Cascade)
-  pieceId String?
-  piece   Piece? @relation(fields: [pieceId], references: [id])
-
-  @@index([avoirId])
-}
-
-// ============================================
-// HISTORIQUE & ANALYTICS
-// ============================================
-
-model ActivityLog {
-  id        String   @id @default(cuid())
-  action    String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, STOCK_ADJUST, EXPORT
-  entity    String   // PIECE, FACTURE, ACHAT, MOUVEMENT, USER
-  entityId  String?
-  details   String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  boutiqueId String?
-  boutique   Boutique? @relation(fields: [boutiqueId], references: [id])
-  createdAt DateTime @default(now())
-
-  @@index([entity])
-  @@index([userId])
-  @@index([createdAt])
-  @@index([boutiqueId])
-}
-
-model HistoriquePrix {
-  id           String   @id @default(cuid())
-  prixVente    Decimal  @db.Decimal(10, 2)
-  prixAchat    Decimal? @db.Decimal(10, 2)
-  dateChangement DateTime @default(now())
-  motif        String?
-
-  pieceId String
-  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-
-  @@index([pieceId])
-  @@index([dateChangement])
 }
