@@ -159,7 +159,20 @@ export default function PieceCard({ piece }: PieceCardProps) {
           </div>
         </div>
 
-        {/* Barre de stock si quantité dans panier */}
+        {/* Bouton Ajouter — visible seulement sur mobile (hover indisponible sur touch) */}
+        {!rupture && !cartItem && (
+          <div className="sm:hidden mt-3" onClick={(e) => e.preventDefault()}>
+            <button
+              onClick={handleAjouter}
+              className="w-full flex items-center justify-center gap-1.5 bg-brand-600 text-white py-2 rounded-lg text-sm font-semibold"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Ajouter
+            </button>
+          </div>
+        )}
+
+        {/* Contrôles quantité si déjà dans le panier */}
         {cartItem && (
           <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
             <span className="text-xs text-gray-500">{cartItem.quantite} dans le panier</span>

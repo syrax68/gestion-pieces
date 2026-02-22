@@ -18,6 +18,7 @@ export default function Catalogue() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [showFilters, setShowFilters] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
@@ -82,7 +83,7 @@ export default function Catalogue() {
         setLoading(false);
         setLoadingMore(false);
       });
-  }, [debouncedSearch, selectedCategorie, selectedMarque, page]);
+  }, [debouncedSearch, selectedCategorie, selectedMarque, page, retryCount]);
 
   const nbFiltresActifs = [selectedCategorie, selectedMarque].filter(Boolean).length;
 
@@ -149,14 +150,14 @@ export default function Catalogue() {
         </button>
       </div>
 
-      <div className="flex gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Panneau de filtres */}
         <aside
-          className={`w-64 shrink-0 ${
+          className={`w-full lg:w-64 shrink-0 ${
             showFilters ? "block" : "hidden"
           } lg:block`}
         >
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-24">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 lg:sticky lg:top-24">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-900 text-sm">Filtres</h2>
               {nbFiltresActifs > 0 && (
@@ -249,7 +250,7 @@ export default function Catalogue() {
             <div className="text-center py-16">
               <p className="text-red-500 font-medium">{error}</p>
               <button
-                onClick={() => setPage(1)}
+                onClick={() => { setPage(1); setRetryCount((c) => c + 1); }}
                 className="mt-4 text-sm text-brand-600 hover:underline"
               >
                 Réessayer
