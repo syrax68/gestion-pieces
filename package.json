@@ -9,6 +9,7 @@
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "build:frontend": "npm install --prefix packages/frontend --ignore-scripts && chmod -R +x packages/frontend/node_modules/.bin/ && npm run build --prefix packages/frontend",
+    "build:storefront": "npm install --prefix packages/storefront --ignore-scripts && chmod -R +x packages/storefront/node_modules/.bin/ && npm run build --prefix packages/storefront",
     "build:backend": "pnpm --filter backend build",
     "lint": "pnpm -r run lint",
     "db:up": "docker compose up -d",
