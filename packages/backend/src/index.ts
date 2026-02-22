@@ -102,11 +102,15 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // Warm up Neon connection (cold start : la DB se suspend après 5min d'inactivité)
-async function warmupDatabase(attempts = 6, delay = 5000): Promise<void> {
+async function warmupDatabase(attempts = 10, delay = 3000): Promise<void> {
   for (let i = 0; i < attempts; i++) {
     try {
       await prisma.$queryRaw`SELECT 1`;
       console.log("✅ Database connection ready");
+      // Keep-alive : ping toutes les 4 minutes pour empêcher Neon de se suspendre
+      setInterval(async () => {
+        try { await prisma.$queryRaw`SELECT 1`; } catch {}
+      }, 4 * 60 * 1000);
       return;
     } catch {
       if (i < attempts - 1) {
