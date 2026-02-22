@@ -92,6 +92,9 @@ app.get("/api/health", (_, res) => {
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "Origine non autorisée" });
+  }
   console.error(err.stack);
   res.status(500).json({ error: "Une erreur interne est survenue" });
 });
