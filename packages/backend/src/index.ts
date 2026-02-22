@@ -36,24 +36,26 @@ export const prisma = new PrismaClient();
 app.use(
   cors({
     origin: (origin, callback) => {
-      // En développement, autoriser localhost
-      if (process.env.NODE_ENV !== "production") {
-        if (!origin || origin.includes("localhost")) {
-          return callback(null, true);
-        }
-      }
-
-      // En production, utiliser la whitelist stricte
-      const allowedOrigins = process.env.FRONTEND_URL?.split(",") || [];
-
-      // Autoriser les requêtes sans origin (ex: Postman, curl, mobile apps)
+      // Autoriser les requêtes sans origin (Postman, curl, mobile apps)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      // Autoriser localhost en développement
+      if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+        return callback(null, true);
       }
+
+      // Autoriser tous les sous-domaines kojakojamoto.com
+      if (origin.endsWith(".kojakojamoto.com") || origin === "https://kojakojamoto.com") {
+        return callback(null, true);
+      }
+
+      // Whitelist supplémentaire via FRONTEND_URL
+      const allowedOrigins = process.env.FRONTEND_URL?.split(",").map(o => o.trim()) || [];
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   }),
