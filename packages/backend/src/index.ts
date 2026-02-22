@@ -20,6 +20,7 @@ import devisRoutes from "./routes/devis.js";
 import avoirsRoutes from "./routes/avoirs.js";
 import inventairesRoutes from "./routes/inventaires.js";
 import imagesRoutes from "./routes/images.js";
+import publicRoutes from "./routes/public.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -58,6 +59,9 @@ app.use(
   }),
 );
 app.use(express.json());
+
+// Routes publiques (sans authentification)
+app.use("/api/public", publicRoutes);
 
 // Routes
 app.use("/api/auth", authRoutes);
