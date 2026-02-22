@@ -101,10 +101,29 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: "Une erreur interne est survenue" });
 });
 
+// Warm up Neon connection (cold start : la DB se suspend après 5min d'inactivité)
+async function warmupDatabase(attempts = 6, delay = 5000): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      console.log("✅ Database connection ready");
+      return;
+    } catch {
+      if (i < attempts - 1) {
+        console.log(`⏳ Database not ready, retry in ${delay / 1000}s... (${i + 1}/${attempts})`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  console.warn("⚠️  Database warm-up timed out — will retry on first request");
+}
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  // Lance le warm-up en arrière-plan (sans bloquer le démarrage du serveur)
+  warmupDatabase().catch((e) => console.error("Warm-up error:", e));
 });
 
 // Graceful shutdown
