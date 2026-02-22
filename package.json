@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix packages/backend && npm run build --prefix packages/backend",
+    "build": "npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend",
     "start": "node packages/backend/dist/index.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
