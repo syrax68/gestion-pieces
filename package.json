@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend",
-    "start": "node packages/backend/dist/index.js",
+    "start": "node server.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
