@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "npm install --prefix packages/backend && npm run build --prefix packages/backend",
+    "start": "node packages/backend/dist/index.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
-    "build": "pnpm -r run build",
     "build:frontend": "pnpm --filter frontend build",
     "build:backend": "pnpm --filter backend build",
     "lint": "pnpm -r run lint",
@@ -15,6 +16,9 @@
     "db:migrate": "pnpm --filter backend prisma migrate dev",
     "db:seed": "pnpm --filter backend prisma db seed",
     "db:studio": "pnpm --filter backend prisma studio"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
