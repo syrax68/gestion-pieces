@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download, ArrowLeftRight, Camera, ImageIcon } from "lucide-react";
+import { Search, Plus, Package, Edit, Trash2, Loader2, Filter, X, ChevronDown, ChevronUp, Download, ArrowLeftRight, Camera, ImageIcon, FileUp } from "lucide-react";
 import { piecesApi, categoriesApi, marquesApi, exportApi, imagesApi, Piece, Categorie, Marque } from "@/lib/api";
 import PieceForm from "@/components/PieceForm";
 import ReplacePieceDialog from "@/components/ReplacePieceDialog";
+import ImportPiecesDialog from "@/components/ImportPiecesDialog";
 import { useToast } from "@/components/ui/Toaster";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -29,6 +30,7 @@ export default function PiecesList() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [replacePiece, setReplacePiece] = useState<Piece | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [uploadingPieceId, setUploadingPieceId] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<string | null>(null);
@@ -239,6 +241,12 @@ export default function PiecesList() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+              <FileUp className="mr-2 h-4 w-4" />
+              Import XLSX
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="mr-2 h-4 w-4" />
             Filtres
@@ -602,6 +610,12 @@ export default function PiecesList() {
           onSuccess={loadData}
         />
       )}
+
+      <ImportPiecesDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }

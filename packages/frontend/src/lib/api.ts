@@ -85,6 +85,12 @@ export interface User {
   createdAt: string;
 }
 
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: { ligne: number; erreur: string }[];
+}
+
 export interface Boutique {
   id: string;
   nom: string;
@@ -556,6 +562,26 @@ export const piecesApi = {
       newPiece: { reference: string; nom: string };
       stats: Record<string, number>;
     }>(`/pieces/${id}/remplacer`, { newPieceId }),
+  importXlsx: async (file: File): Promise<ImportResult> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_URL}/pieces/import`, {
+      method: "POST",
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    return handleResponse<ImportResult>(res);
+  },
+  downloadTemplate: async () => {
+    const token = getToken();
+    const res = await fetch(`${API_URL}/pieces/import/template`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    });
+    if (!res.ok) throw new Error("Erreur lors du téléchargement du template");
+    const blob = await res.blob();
+    downloadBlob(blob, "template_import_pieces.xlsx");
+  },
 };
 
 export const imagesApi = {

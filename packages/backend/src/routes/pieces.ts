@@ -1,5 +1,7 @@
 import { Router, Response } from "express";
 import { z } from "zod";
+import multer from "multer";
+import * as XLSX from "xlsx";
 import { prisma } from "../index.js";
 import { authenticate, isVendeurOrAdmin, isAdmin, AuthRequest } from "../middleware/auth.js";
 import { injectBoutique } from "../middleware/tenant.js";
@@ -8,6 +10,20 @@ import { serializePiece, serializeHistoriquePrix } from "../utils/decimal.js";
 import { handleRouteError } from "../utils/handleError.js";
 import { ensureBoutique } from "../utils/ensureBoutique.js";
 import { adjustStock } from "../services/stockService.js";
+import { exportToXlsx } from "../utils/xlsx.js";
+
+const xlsxUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const lower = file.originalname.toLowerCase();
+    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Format non supporté. Utilisez un fichier Excel (.xlsx ou .xls)."));
+    }
+  },
+});
 
 const router = Router();
 router.use(authenticate, injectBoutique);
@@ -73,6 +89,143 @@ router.get("/", async (req, res) => {
     res.json(pieces.map(serializePiece));
   } catch (error) {
     handleRouteError(res, error, "la récupération des pièces");
+  }
+});
+
+// Download import template
+router.get("/import/template", isVendeurOrAdmin, async (_req, res: Response) => {
+  try {
+    const templateData = [
+      {
+        reference: "REF-001",
+        nom: "Filtre à huile Honda CB125",
+        prixVente: 15000,
+        prixAchat: 9000,
+        stock: 10,
+        stockMin: 2,
+        tauxTVA: 0,
+        marque: "Honda",
+        categorie: "Filtration",
+        codeBarres: "1234567890123",
+        description: "Filtre à huile compatible CB125F 2015-2023",
+      },
+      {
+        reference: "REF-002",
+        nom: "Plaquettes de frein avant universelles",
+        prixVente: 25000,
+        prixAchat: 15000,
+        stock: 5,
+        stockMin: 1,
+        tauxTVA: 0,
+        marque: "",
+        categorie: "Freinage",
+        codeBarres: "",
+        description: "",
+      },
+    ];
+    exportToXlsx(res, templateData, "Import Pièces", "template_import_pieces.xlsx");
+  } catch (error) {
+    handleRouteError(res, error, "la génération du template");
+  }
+});
+
+// Import pieces from XLSX
+router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+    if (rows.length === 0) return res.status(400).json({ error: "Le fichier est vide ou ne contient aucune ligne." });
+
+    const boutiqueId = req.boutiqueId!;
+    const results = {
+      imported: 0,
+      skipped: 0,
+      errors: [] as { ligne: number; erreur: string }[],
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const ligne = i + 2; // +2 : ligne 1 = en-têtes
+
+      try {
+        const reference = String(row["reference"] ?? "").trim();
+        const nom = String(row["nom"] ?? "").trim();
+        const prixVenteRaw = Number(row["prixVente"] ?? 0);
+
+        if (!reference) { results.errors.push({ ligne, erreur: "Référence manquante" }); continue; }
+        if (!nom) { results.errors.push({ ligne, erreur: "Nom manquant" }); continue; }
+        if (!prixVenteRaw || prixVenteRaw <= 0) { results.errors.push({ ligne, erreur: "Prix de vente invalide ou manquant" }); continue; }
+
+        // Skip duplicates
+        const existing = await prisma.piece.findFirst({ where: { reference, boutiqueId } });
+        if (existing) { results.skipped++; continue; }
+
+        // Resolve marque
+        let marqueId: string | null = null;
+        const marqueName = String(row["marque"] ?? "").trim();
+        if (marqueName) {
+          const marque = await prisma.marque.findFirst({
+            where: { nom: { equals: marqueName, mode: "insensitive" }, boutiqueId },
+          });
+          if (marque) marqueId = marque.id;
+        }
+
+        // Resolve categorie
+        let categorieId: string | null = null;
+        const categorieName = String(row["categorie"] ?? "").trim();
+        if (categorieName) {
+          const categorie = await prisma.categorie.findFirst({
+            where: { nom: { equals: categorieName, mode: "insensitive" }, boutiqueId },
+          });
+          if (categorie) categorieId = categorie.id;
+        }
+
+        const prixAchat = Number(row["prixAchat"] ?? 0) || null;
+        const stock = Math.max(0, parseInt(String(row["stock"] ?? 0)) || 0);
+        const stockMin = Math.max(0, parseInt(String(row["stockMin"] ?? 0)) || 0);
+        const tauxTVA = Math.min(100, Math.max(0, Number(row["tauxTVA"] ?? 0) || 0));
+        const codeBarres = String(row["codeBarres"] ?? "").trim() || null;
+        const description = String(row["description"] ?? "").trim() || null;
+
+        await prisma.piece.create({
+          data: {
+            reference,
+            nom,
+            prixVente: prixVenteRaw,
+            prixAchat,
+            stock,
+            stockMin,
+            tauxTVA,
+            codeBarres,
+            description,
+            marqueId,
+            categorieId,
+            boutiqueId,
+          },
+        });
+
+        results.imported++;
+      } catch (err) {
+        results.errors.push({ ligne, erreur: err instanceof Error ? err.message : "Erreur inconnue" });
+      }
+    }
+
+    await logActivity(
+      req.user!.userId,
+      "CREATE",
+      "PIECE",
+      boutiqueId,
+      `Import Excel : ${results.imported} pièce(s) importée(s), ${results.skipped} ignorée(s)`,
+    );
+
+    res.json(results);
+  } catch (error) {
+    handleRouteError(res, error, "l'import des pièces");
   }
 });
 
