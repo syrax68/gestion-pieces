@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "if [ \"$DEPLOY_TARGET\" = 'storefront' ]; then npm install --prefix packages/storefront --ignore-scripts && chmod -R +x packages/storefront/node_modules/.bin/ && npm run build --prefix packages/storefront; else npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend; fi",
-    "postinstall": "if [ \"$DEPLOY_TARGET\" != 'storefront' ] && [ \"$SKIP_BACKEND_BUILD\" != 'true' ]; then npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend; fi",
+    "postinstall": "if [ \"$DEPLOY_TARGET\" = 'backend' ]; then npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend; fi",
     "start": "node server.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
