@@ -39,7 +39,7 @@ export default function PiecesList() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedMarques, setSelectedMarques] = useState<string[]>([]);
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     categories: true,
     marques: true,
@@ -231,34 +231,34 @@ export default function PiecesList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pièces</h1>
           <p className="text-muted-foreground">Gérez votre inventaire de pièces moto</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => exportApi.downloadPieces()}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
           {canEdit && (
             <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-              <FileUp className="mr-2 h-4 w-4" />
-              Import XLSX
+              <FileUp className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Import XLSX</span>
             </Button>
           )}
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            <Filter className="mr-2 h-4 w-4" />
-            Filtres
+          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Filtres</span>
             {hasActiveFilters && (
-              <Badge variant="secondary" className="ml-2">
+              <Badge variant="secondary" className="ml-1 sm:ml-2">
                 {selectedCategories.length + selectedMarques.length + (stockFilter !== "all" ? 1 : 0)}
               </Badge>
             )}
           </Button>
-          <Button onClick={handleAddNew}>
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter une pièce
+          <Button size="sm" onClick={handleAddNew}>
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Ajouter une pièce</span>
           </Button>
         </div>
       </div>
@@ -275,11 +275,11 @@ export default function PiecesList() {
         </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Panneau de filtres - à gauche */}
+      <div className={`${showFilters ? 'flex flex-col md:flex-row' : 'flex'} gap-4 md:gap-6`}>
+        {/* Panneau de filtres - à gauche sur desktop, au-dessus sur mobile */}
         {showFilters && (
-          <div className="w-64 flex-shrink-0">
-            <div className="sticky top-4 bg-muted/30 rounded-lg border border-border/50 overflow-hidden overflow-x-hidden">
+          <div className="w-full md:w-64 md:flex-shrink-0">
+            <div className="md:sticky md:top-4 bg-muted/30 rounded-lg border border-border/50 overflow-hidden overflow-x-hidden">
               {/* En-tête du filtre */}
               <div className="bg-muted/50 px-4 py-3 border-b border-border/50">
                 <div className="flex items-center justify-between">

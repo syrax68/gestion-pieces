@@ -349,25 +349,25 @@ export default function Factures() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Facturation Rapide</h1>
           <p className="text-muted-foreground">Créez et gérez vos factures de vente</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => exportApi.downloadFactures()}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button onClick={() => setIsFormOpen(true)} size="lg">
-            <Plus className="mr-2 h-5 w-5" />
-            Nouvelle Facture
+          <Button onClick={() => setIsFormOpen(true)} size="sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nouvelle Facture</span>
           </Button>
         </div>
       </div>
 
       {/* Recherche + Filtre statut */}
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -377,7 +377,7 @@ export default function Factures() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-48">
+        <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-full sm:w-48">
           <option value="all">Tous les statuts</option>
           <option value="BROUILLON">Brouillons</option>
           <option value="EN_ATTENTE">En attente</option>
@@ -397,158 +397,185 @@ export default function Factures() {
           </CardContent>
         </Card>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-muted/50 text-left text-sm font-medium text-muted-foreground">
-                <th className="px-4 py-3 w-8"></th>
-                <th className="px-4 py-3">N° Facture</th>
-                <th className="px-4 py-3">Client</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Articles</th>
-                <th className="px-4 py-3">Statut</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 w-28"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredFactures.map((facture) => (
-                <>
-                  <tr
-                    key={facture.id}
-                    className="hover:bg-muted/30 cursor-pointer text-sm"
-                    onClick={() => setExpandedFacture(expandedFacture === facture.id ? null : facture.id)}
-                  >
-                    <td className="px-4 py-3">
-                      {expandedFacture === facture.id ? (
-                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        <>
+          {/* Vue cartes - mobile uniquement */}
+          <div className="space-y-3 md:hidden">
+            {filteredFactures.map((facture) => (
+              <Card key={facture.id} className="overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer"
+                  onClick={() => setExpandedFacture(expandedFacture === facture.id ? null : facture.id)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm">{facture.numero}</span>
+                      {getStatutBadge(facture.statut)}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5 truncate">{facture.client?.nom || "Client anonyme"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(facture.dateFacture).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {" · "}{facture.items.length} article{facture.items.length > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <span className="font-bold text-sm whitespace-nowrap">{facture.total.toLocaleString()} Fmg</span>
+                    {expandedFacture === facture.id ? <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                  </div>
+                </div>
+                {expandedFacture === facture.id && (
+                  <div className="border-t bg-muted/20 px-4 py-3 space-y-3">
+                    <div className="space-y-1">
+                      {facture.items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                          <span className="truncate mr-2">{item.designation}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {item.quantite} × {item.prixUnitaire.toLocaleString()} ={" "}
+                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1 pt-1 border-t">
+                      {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditFacture(facture); }}>
+                            <Pencil className="h-3.5 w-3.5 mr-1" />Modifier
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleValidateFacture(facture); }}>
+                            <CheckCircle className="h-3.5 w-3.5 mr-1 text-green-600" />Valider
+                          </Button>
+                        </>
                       )}
-                    </td>
-                    <td className="px-4 py-3 font-medium">{facture.numero}</td>
-                    <td className="px-4 py-3">{facture.client?.nom || "Client anonyme"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(facture.dateFacture).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {facture.items.length} article{facture.items.length > 1 ? "s" : ""}
-                    </td>
-                    <td className="px-4 py-3">{getStatutBadge(facture.statut)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Fmg</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title="Modifier"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditFacture(facture);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title="Valider la facture"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleValidateFacture(facture);
-                              }}
-                            >
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            </Button>
-                          </>
-                        )}
-                        {(facture.statut === "EN_ATTENTE" || facture.statut === "PARTIELLEMENT_PAYEE") && isVendeurOrAdmin && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Marquer comme payée"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePayerFacture(facture);
-                            }}
-                          >
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                          </Button>
-                        )}
-                        {facture.statut !== "ANNULEE" && facture.statut !== "BROUILLON" && isVendeurOrAdmin && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Annuler la facture"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAnnulerFacture(facture);
-                            }}
-                          >
-                            <Ban className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Imprimer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedFacture(facture);
-                            setIsPrintOpen(true);
-                          }}
-                        >
-                          <Printer className="h-4 w-4" />
+                      {(facture.statut === "EN_ATTENTE" || facture.statut === "PARTIELLEMENT_PAYEE") && isVendeurOrAdmin && (
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePayerFacture(facture); }}>
+                          <DollarSign className="h-3.5 w-3.5 mr-1 text-green-600" />Payer
                         </Button>
-                        {user?.role === "ADMIN" && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Supprimer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteFacture(facture);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                      )}
+                      {facture.statut !== "ANNULEE" && facture.statut !== "BROUILLON" && isVendeurOrAdmin && (
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleAnnulerFacture(facture); }}>
+                          <Ban className="h-3.5 w-3.5 mr-1 text-red-500" />Annuler
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setSelectedFacture(facture); setIsPrintOpen(true); }}>
+                        <Printer className="h-3.5 w-3.5 mr-1" />Imprimer
+                      </Button>
+                      {user?.role === "ADMIN" && (
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleDeleteFacture(facture); }}>
+                          <Trash2 className="h-3.5 w-3.5 mr-1 text-red-500" />Supprimer
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          {/* Vue table - desktop uniquement */}
+          <div className="hidden md:block border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted/50 text-left text-sm font-medium text-muted-foreground">
+                  <th className="px-4 py-3 w-8"></th>
+                  <th className="px-4 py-3">N° Facture</th>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Articles</th>
+                  <th className="px-4 py-3">Statut</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 w-28"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredFactures.map((facture) => (
+                  <>
+                    <tr
+                      key={facture.id}
+                      className="hover:bg-muted/30 cursor-pointer text-sm"
+                      onClick={() => setExpandedFacture(expandedFacture === facture.id ? null : facture.id)}
+                    >
+                      <td className="px-4 py-3">
+                        {expandedFacture === facture.id ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedFacture === facture.id && (
-                    <tr key={`${facture.id}-details`}>
-                      <td colSpan={8} className="bg-muted/20 px-8 py-3">
-                        <div className="space-y-1">
-                          {facture.items.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center text-sm py-1">
-                              <span>{item.designation}</span>
-                              <span className="text-muted-foreground">
-                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
-                                <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
-                              </span>
-                            </div>
-                          ))}
+                      </td>
+                      <td className="px-4 py-3 font-medium">{facture.numero}</td>
+                      <td className="px-4 py-3">{facture.client?.nom || "Client anonyme"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(facture.dateFacture).toLocaleDateString("fr-FR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {facture.items.length} article{facture.items.length > 1 ? "s" : ""}
+                      </td>
+                      <td className="px-4 py-3">{getStatutBadge(facture.statut)}</td>
+                      <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Fmg</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
+                            <>
+                              <Button size="icon" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEditFacture(facture); }}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" title="Valider la facture" onClick={(e) => { e.stopPropagation(); handleValidateFacture(facture); }}>
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                            </>
+                          )}
+                          {(facture.statut === "EN_ATTENTE" || facture.statut === "PARTIELLEMENT_PAYEE") && isVendeurOrAdmin && (
+                            <Button size="icon" variant="ghost" title="Marquer comme payée" onClick={(e) => { e.stopPropagation(); handlePayerFacture(facture); }}>
+                              <DollarSign className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                          {facture.statut !== "ANNULEE" && facture.statut !== "BROUILLON" && isVendeurOrAdmin && (
+                            <Button size="icon" variant="ghost" title="Annuler la facture" onClick={(e) => { e.stopPropagation(); handleAnnulerFacture(facture); }}>
+                              <Ban className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                          <Button size="icon" variant="ghost" title="Imprimer" onClick={(e) => { e.stopPropagation(); setSelectedFacture(facture); setIsPrintOpen(true); }}>
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          {user?.role === "ADMIN" && (
+                            <Button size="icon" variant="ghost" title="Supprimer" onClick={(e) => { e.stopPropagation(); handleDeleteFacture(facture); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {expandedFacture === facture.id && (
+                      <tr key={`${facture.id}-details`}>
+                        <td colSpan={8} className="bg-muted/20 px-8 py-3">
+                          <div className="space-y-1">
+                            {facture.items.map((item) => (
+                              <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                                <span>{item.designation}</span>
+                                <span className="text-muted-foreground">
+                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
+                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Dialog Nouvelle Facture */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">{editingFacture ? `Modifier ${editingFacture.numero}` : "Nouvelle Facture"}</DialogTitle>
           </DialogHeader>
@@ -573,7 +600,7 @@ export default function Factures() {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Nom du client</Label>
                     <Input placeholder="Nom complet ou entreprise" value={clientNom} onChange={(e) => setClientNom(e.target.value)} />
@@ -607,49 +634,51 @@ export default function Factures() {
                     {cart.map((item, index) => {
                       const piece = pieces.find((p) => p.id === item.pieceId);
                       return (
-                        <div key={item.id} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
-                          <div className="col-span-5">
-                            <Label>Pièce</Label>
-                            <Autocomplete
-                              value={item.pieceId}
-                              onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
-                              options={pieces
-                                .filter((p) => p.stock > 0)
-                                .map((piece) => ({
-                                  value: piece.id,
-                                  label: piece.nom,
-                                  subtitle: `${piece.reference} - Stock: ${piece.stock}`,
-                                }))}
-                              placeholder="Rechercher une pièce..."
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Quantité</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              max={piece?.stock || 999}
-                              value={item.quantite}
-                              onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Prix Unit.</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.prixUnitaire}
-                              onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Total HT</Label>
-                            <Input value={item.total.toFixed(2)} readOnly />
-                          </div>
-                          <div className="col-span-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleRemoveFromCart(index)}>
+                        <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <Label>Pièce</Label>
+                              <Autocomplete
+                                value={item.pieceId}
+                                onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
+                                options={pieces
+                                  .filter((p) => p.stock > 0)
+                                  .map((piece) => ({
+                                    value: piece.id,
+                                    label: piece.nom,
+                                    subtitle: `${piece.reference} - Stock: ${piece.stock}`,
+                                  }))}
+                                placeholder="Rechercher une pièce..."
+                              />
+                            </div>
+                            <Button size="icon" variant="ghost" className="mt-5 flex-shrink-0" onClick={() => handleRemoveFromCart(index)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label>Qté</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max={piece?.stock || 999}
+                                value={item.quantite}
+                                onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label>Prix Unit.</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={item.prixUnitaire}
+                                onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label>Total HT</Label>
+                              <Input value={item.total.toFixed(2)} readOnly className="bg-muted/50" />
+                            </div>
                           </div>
                         </div>
                       );
@@ -662,7 +691,7 @@ export default function Factures() {
             {/* Totaux et paiement */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Méthode de paiement</Label>
                     <Select value={methodePaiement} onChange={(e) => setMethodePaiement(e.target.value)}>

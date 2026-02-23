@@ -151,7 +151,7 @@ export default function PieceDetails() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-6 order-2 md:order-1">
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -266,7 +266,7 @@ export default function PieceDetails() {
                   )}
 
                   {/* Thumbnails grid + add tile */}
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                     {images.map((img) => (
                       <div key={img.id} className="relative group">
                         <div
@@ -352,7 +352,7 @@ export default function PieceDetails() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 order-1 md:order-2">
           <Card>
             <CardHeader>
               <CardTitle>Stock</CardTitle>

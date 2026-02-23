@@ -164,12 +164,12 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestion des utilisateurs</h1>
           <p className="text-slate-500 dark:text-slate-400">Gérez les comptes et les permissions</p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button size="sm" onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
           Nouvel utilisateur
         </Button>
@@ -289,7 +289,7 @@ export default function Users() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="nom">Nom</Label>
                 <Input

@@ -46,12 +46,12 @@ const DialogTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HT
 DialogTitle.displayName = "DialogTitle";
 
 const DialogDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  ({ className, ...props }, ref) => <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />,
 );
 DialogDescription.displayName = "DialogDescription";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6", className)} {...props} />
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6 gap-2", className)} {...props} />
 );
 DialogFooter.displayName = "DialogFooter";
 
@@ -61,14 +61,14 @@ const DialogClose = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttribut
       ref={ref}
       className={cn(
         "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
-        className
+        className,
       )}
       {...props}
     >
       {children || <X className="h-4 w-4" />}
       <span className="sr-only">Close</span>
     </button>
-  )
+  ),
 );
 DialogClose.displayName = "DialogClose";
 

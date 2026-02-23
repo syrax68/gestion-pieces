@@ -292,7 +292,7 @@ export default function Dashboard() {
                 <BarChart data={topPieces} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
                   <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis dataKey="nom" type="category" width={120} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="nom" type="category" width={90} tick={{ fontSize: 10 }} />
                   <Tooltip
                     formatter={(value, name) => [
                       name === "quantite" ? `${value} unités` : formatCurrency(Number(value)),

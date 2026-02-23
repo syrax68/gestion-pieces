@@ -173,7 +173,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
               <Textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="prixAchat">Prix d'achat (Ar)</Label>
                 <Input id="prixAchat" name="prixAchat" type="number" step="0.01" value={formData.prixAchat} onChange={handleChange} />
@@ -190,10 +190,10 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="tauxTVA">TVA (%)</Label>
-                <Input id="tauxTVA" name="tauxTVA" type="number" step="0.1" value={formData.tauxTVA} onChange={handleChange} />
-              </div>
+            </div>
+            <div className="w-1/3">
+              <Label htmlFor="tauxTVA">TVA (%)</Label>
+              <Input id="tauxTVA" name="tauxTVA" type="number" step="0.1" value={formData.tauxTVA} onChange={handleChange} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

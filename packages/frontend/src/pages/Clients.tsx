@@ -333,16 +333,14 @@ export default function Clients() {
                         {clientFactures.slice(0, 5).map((f) => (
                           <div
                             key={f.id}
-                            className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-800 rounded px-3 py-2"
+                            className="flex flex-col xs:flex-row xs:items-center justify-between text-sm bg-slate-50 dark:bg-slate-800 rounded px-3 py-2 gap-1"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono font-medium">{f.numero}</span>
                               <span className="text-muted-foreground">{new Date(f.dateFacture).toLocaleDateString("fr-FR")}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
                               <Badge variant={getStatutVariant(f.statut)}>{formatStatut(f.statut)}</Badge>
-                              <span className="font-semibold">{typeof f.total === "number" ? f.total.toFixed(2) : f.total} Fmg</span>
                             </div>
+                            <span className="font-semibold whitespace-nowrap">{typeof f.total === "number" ? f.total.toFixed(2) : f.total} Fmg</span>
                           </div>
                         ))}
                         {clientFactures.length > 5 && (
@@ -368,7 +366,7 @@ export default function Clients() {
           </DialogHeader>
 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="nom">Nom *</Label>
                 <Input id="nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} placeholder="Nom" />
@@ -405,7 +403,7 @@ export default function Clients() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="telephone">Téléphone</Label>
                 <Input
@@ -436,7 +434,7 @@ export default function Clients() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="codePostal">Code postal</Label>
                 <Input

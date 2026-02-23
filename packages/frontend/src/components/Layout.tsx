@@ -251,7 +251,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </header>
-      <main className="container mx-auto px-4 py-8">{children}</main>
+      <main className="container mx-auto px-4 py-4 md:py-8">{children}</main>
 
       {/* Dialog changement de mot de passe */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>

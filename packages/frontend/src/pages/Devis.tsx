@@ -352,7 +352,7 @@ export default function DevisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Devis</h1>
           <p className="text-muted-foreground">Créez et gérez vos devis clients</p>
@@ -360,18 +360,19 @@ export default function DevisPage() {
         {isVendeurOrAdmin && (
           <Button onClick={() => setIsFormOpen(true)} size="lg">
             <Plus className="mr-2 h-5 w-5" />
-            Nouveau Devis
+            <span className="hidden sm:inline">Nouveau Devis</span>
+            <span className="sm:hidden">Nouveau</span>
           </Button>
         )}
       </div>
 
       {/* Search + Filter */}
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Rechercher par numéro ou client..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
-        <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-48">
+        <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-full sm:w-48">
           <option value="all">Tous les statuts</option>
           <option value="BROUILLON">Brouillons</option>
           <option value="ENVOYE">Envoyés</option>
@@ -391,110 +392,193 @@ export default function DevisPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-muted/50 text-left text-sm font-medium text-muted-foreground">
-                <th className="px-4 py-3 w-8"></th>
-                <th className="px-4 py-3">N° Devis</th>
-                <th className="px-4 py-3">Client</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Validité</th>
-                <th className="px-4 py-3">Statut</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 w-36"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredDevis.map((devis) => (
-                <>
-                  <tr
-                    key={devis.id}
-                    className="hover:bg-muted/30 cursor-pointer text-sm"
+        <>
+          {/* Mobile cards */}
+          <div className="space-y-3 md:hidden">
+            {filteredDevis.map((devis) => (
+              <Card key={devis.id} className="overflow-hidden">
+                <CardContent className="p-3">
+                  <div
+                    className="flex items-start justify-between gap-2 cursor-pointer"
                     onClick={() => setExpandedDevis(expandedDevis === devis.id ? null : devis.id)}
                   >
-                    <td className="px-4 py-3">
-                      {expandedDevis === devis.id ? (
-                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-medium">{devis.numero}</td>
-                    <td className="px-4 py-3">{devis.client?.nom || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(devis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(devis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-3">{getStatutBadge(devis.statut)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{devis.total.toLocaleString()} Fmg</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {devis.statut === "BROUILLON" && isVendeurOrAdmin && (
-                          <>
-                            <Button size="icon" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEditDevis(devis); }}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Envoyer au client" onClick={(e) => { e.stopPropagation(); handleEnvoyerDevis(devis); }}>
-                              <Send className="h-4 w-4 text-blue-600" />
-                            </Button>
-                          </>
-                        )}
-                        {devis.statut === "ENVOYE" && isVendeurOrAdmin && (
-                          <>
-                            <Button size="icon" variant="ghost" title="Accepté" onClick={(e) => { e.stopPropagation(); handleAccepterDevis(devis); }}>
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Refusé" onClick={(e) => { e.stopPropagation(); handleRefuserDevis(devis); }}>
-                              <XCircle className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </>
-                        )}
-                        {devis.statut === "ACCEPTE" && isVendeurOrAdmin && (
-                          <Button size="icon" variant="ghost" title="Convertir en facture" onClick={(e) => { e.stopPropagation(); handleConvertirEnFacture(devis); }}>
-                            <ArrowRightLeft className="h-4 w-4 text-green-600" />
-                          </Button>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Imprimer / PDF"
-                          onClick={(e) => { e.stopPropagation(); setSelectedDevis(devis); setIsPrintOpen(true); }}
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        {user?.role === "ADMIN" && (
-                          <Button size="icon" variant="ghost" title="Supprimer" onClick={(e) => { e.stopPropagation(); handleDeleteDevis(devis); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm">{devis.numero}</span>
+                        {getStatutBadge(devis.statut)}
                       </div>
-                    </td>
-                  </tr>
+                      <p className="text-sm mt-0.5 truncate">{devis.client?.nom || "—"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(devis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {" · "}val. {new Date(devis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="font-bold text-sm whitespace-nowrap">{devis.total.toLocaleString()} Fmg</span>
+                      {expandedDevis === devis.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </div>
+
                   {expandedDevis === devis.id && (
-                    <tr key={`${devis.id}-details`}>
-                      <td colSpan={8} className="bg-muted/20 px-8 py-3">
-                        <div className="space-y-1">
-                          {devis.items.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center text-sm py-1">
-                              <span>{item.designation}</span>
-                              <span className="text-muted-foreground">
-                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
-                                <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
-                              </span>
-                            </div>
-                          ))}
+                    <div className="mt-2 pt-2 border-t space-y-1">
+                      {devis.items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center text-xs py-0.5">
+                          <span className="truncate mr-2">{item.designation}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {item.quantite} × {item.prixUnitaire.toLocaleString()} ={" "}
+                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1 pt-2 mt-2 border-t">
+                    {devis.statut === "BROUILLON" && isVendeurOrAdmin && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handleEditDevis(devis)}>
+                          <Pencil className="h-3 w-3 mr-1" />Modifier
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEnvoyerDevis(devis)}>
+                          <Send className="h-3 w-3 mr-1 text-blue-600" />Envoyer
+                        </Button>
+                      </>
+                    )}
+                    {devis.statut === "ENVOYE" && isVendeurOrAdmin && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handleAccepterDevis(devis)}>
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />Accepter
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRefuserDevis(devis)}>
+                          <XCircle className="h-3 w-3 mr-1 text-red-500" />Refuser
+                        </Button>
+                      </>
+                    )}
+                    {devis.statut === "ACCEPTE" && isVendeurOrAdmin && (
+                      <Button size="sm" variant="outline" onClick={() => handleConvertirEnFacture(devis)}>
+                        <ArrowRightLeft className="h-3 w-3 mr-1 text-green-600" />En facture
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedDevis(devis); setIsPrintOpen(true); }}>
+                      <Printer className="h-3 w-3 mr-1" />PDF
+                    </Button>
+                    {user?.role === "ADMIN" && (
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteDevis(devis)}>
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted/50 text-left text-sm font-medium text-muted-foreground">
+                  <th className="px-4 py-3 w-8"></th>
+                  <th className="px-4 py-3">N° Devis</th>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Validité</th>
+                  <th className="px-4 py-3">Statut</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 w-36"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredDevis.map((devis) => (
+                  <>
+                    <tr
+                      key={devis.id}
+                      className="hover:bg-muted/30 cursor-pointer text-sm"
+                      onClick={() => setExpandedDevis(expandedDevis === devis.id ? null : devis.id)}
+                    >
+                      <td className="px-4 py-3">
+                        {expandedDevis === devis.id ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-medium">{devis.numero}</td>
+                      <td className="px-4 py-3">{devis.client?.nom || "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(devis.dateDevis).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(devis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-3">{getStatutBadge(devis.statut)}</td>
+                      <td className="px-4 py-3 text-right font-bold">{devis.total.toLocaleString()} Fmg</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {devis.statut === "BROUILLON" && isVendeurOrAdmin && (
+                            <>
+                              <Button size="icon" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEditDevis(devis); }}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" title="Envoyer au client" onClick={(e) => { e.stopPropagation(); handleEnvoyerDevis(devis); }}>
+                                <Send className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            </>
+                          )}
+                          {devis.statut === "ENVOYE" && isVendeurOrAdmin && (
+                            <>
+                              <Button size="icon" variant="ghost" title="Accepté" onClick={(e) => { e.stopPropagation(); handleAccepterDevis(devis); }}>
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button size="icon" variant="ghost" title="Refusé" onClick={(e) => { e.stopPropagation(); handleRefuserDevis(devis); }}>
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </>
+                          )}
+                          {devis.statut === "ACCEPTE" && isVendeurOrAdmin && (
+                            <Button size="icon" variant="ghost" title="Convertir en facture" onClick={(e) => { e.stopPropagation(); handleConvertirEnFacture(devis); }}>
+                              <ArrowRightLeft className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Imprimer / PDF"
+                            onClick={(e) => { e.stopPropagation(); setSelectedDevis(devis); setIsPrintOpen(true); }}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          {user?.role === "ADMIN" && (
+                            <Button size="icon" variant="ghost" title="Supprimer" onClick={(e) => { e.stopPropagation(); handleDeleteDevis(devis); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {expandedDevis === devis.id && (
+                      <tr key={`${devis.id}-details`}>
+                        <td colSpan={8} className="bg-muted/20 px-8 py-3">
+                          <div className="space-y-1">
+                            {devis.items.map((item) => (
+                              <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                                <span>{item.designation}</span>
+                                <span className="text-muted-foreground">
+                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
+                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Dialog Nouveau Devis */}
@@ -523,7 +607,7 @@ export default function DevisPage() {
                     ))}
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Nom du client</Label>
                     <Input placeholder="Nom complet ou entreprise" value={clientNom} onChange={(e) => setClientNom(e.target.value)} />
@@ -555,36 +639,40 @@ export default function DevisPage() {
                 ) : (
                   <div className="space-y-3">
                     {cart.map((item, index) => (
-                      <div key={item.id} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
-                        <div className="col-span-5">
-                          <Label>Pièce</Label>
-                          <Autocomplete
-                            value={item.pieceId}
-                            onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
-                            options={pieces.map((piece) => ({
-                              value: piece.id,
-                              label: piece.nom,
-                              subtitle: `${piece.reference} - Stock: ${piece.stock}`,
-                            }))}
-                            placeholder="Rechercher une pièce..."
-                          />
+                      <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <Label>Pièce</Label>
+                            <Autocomplete
+                              value={item.pieceId}
+                              onChange={(value) => handleUpdateCartItem(index, "pieceId", value)}
+                              options={pieces.map((piece) => ({
+                                value: piece.id,
+                                label: piece.nom,
+                                subtitle: `${piece.reference} - Stock: ${piece.stock}`,
+                              }))}
+                              placeholder="Rechercher une pièce..."
+                            />
+                          </div>
+                          <div className="flex-shrink-0 pt-5">
+                            <Button size="icon" variant="ghost" onClick={() => handleRemoveFromCart(index)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="col-span-2">
-                          <Label>Quantité</Label>
-                          <Input type="number" min="1" value={item.quantite} onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)} />
-                        </div>
-                        <div className="col-span-2">
-                          <Label>Prix Unit.</Label>
-                          <Input type="number" step="0.01" value={item.prixUnitaire} onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)} />
-                        </div>
-                        <div className="col-span-2">
-                          <Label>Total HT</Label>
-                          <Input value={item.total.toFixed(2)} readOnly />
-                        </div>
-                        <div className="col-span-1">
-                          <Button size="icon" variant="ghost" onClick={() => handleRemoveFromCart(index)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label>Quantité</Label>
+                            <Input type="number" min="1" value={item.quantite} onChange={(e) => handleUpdateCartItem(index, "quantite", e.target.value)} />
+                          </div>
+                          <div>
+                            <Label>Prix Unit.</Label>
+                            <Input type="number" step="0.01" value={item.prixUnitaire} onChange={(e) => handleUpdateCartItem(index, "prixUnitaire", e.target.value)} />
+                          </div>
+                          <div>
+                            <Label>Total HT</Label>
+                            <Input value={item.total.toFixed(2)} readOnly />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -596,7 +684,7 @@ export default function DevisPage() {
             {/* Options & Totaux */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Date de validité</Label>
                     <Input type="date" value={dateValidite} onChange={(e) => setDateValidite(e.target.value)} />

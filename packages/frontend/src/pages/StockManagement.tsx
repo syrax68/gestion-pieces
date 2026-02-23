@@ -92,14 +92,14 @@ export default function StockManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestion des Stocks</h1>
           <p className="text-muted-foreground">Surveillez et ajustez vos niveaux de stock</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => exportApi.downloadMouvements()}>
-          <Download className="mr-2 h-4 w-4" />
-          Export mouvements
+          <Download className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Export mouvements</span>
         </Button>
       </div>
 
@@ -151,12 +151,12 @@ export default function StockManagement() {
           <CardContent>
             <div className="space-y-2">
               {piecesRupture.map((piece) => (
-                <div key={piece.id} className="flex items-center justify-between p-3 bg-background rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{piece.nom}</p>
+                <div key={piece.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-background rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{piece.nom}</p>
                     <p className="text-sm text-muted-foreground">Réf: {piece.reference}</p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <Badge variant="destructive">Rupture</Badge>
                     <Button size="sm" variant="destructive" onClick={() => handleOpenMovement(piece, "ENTREE")}>
                       <Plus className="h-4 w-4 mr-1" />
@@ -182,14 +182,14 @@ export default function StockManagement() {
           <CardContent>
             <div className="space-y-2">
               {piecesFaibleStock.map((piece) => (
-                <div key={piece.id} className="flex items-center justify-between p-3 bg-background rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{piece.nom}</p>
+                <div key={piece.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-background rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{piece.nom}</p>
                     <p className="text-sm text-muted-foreground">Réf: {piece.reference}</p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <div className="text-right">
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-medium whitespace-nowrap">
                         {piece.stock} / {piece.stockMin} min
                       </p>
                       <Badge variant="warning">Stock faible</Badge>
@@ -214,26 +214,26 @@ export default function StockManagement() {
         <CardContent>
           <div className="space-y-2">
             {pieces.map((piece) => (
-              <div key={piece.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
-                <div className="flex-1">
-                  <p className="font-medium">{piece.nom}</p>
-                  <p className="text-sm text-muted-foreground">
+              <div key={piece.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{piece.nom}</p>
+                  <p className="text-sm text-muted-foreground truncate">
                     {piece.reference} • {piece.marque?.nom || "-"}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm font-medium">Stock: {piece.stock}</p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-medium whitespace-nowrap">Stock: {piece.stock}</p>
                     <p className="text-xs text-muted-foreground">Min: {piece.stockMin}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "ENTREE")}>
+                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "ENTREE")} title="Entrée">
                       <Plus className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "SORTIE")}>
+                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "SORTIE")} title="Sortie">
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "AJUSTEMENT")}>
+                    <Button size="sm" variant="outline" onClick={() => handleOpenMovement(piece, "AJUSTEMENT")} title="Ajuster">
                       <RefreshCw className="h-4 w-4" />
                     </Button>
                   </div>
