@@ -1,5 +1,10 @@
 # CLAUDE.md - Référence projet Gestion Pièces Moto
 
+<!-- Rules détaillées -->
+@.claude/rules/backend.md
+@.claude/rules/frontend.md
+@.claude/rules/database.md
+
 ## Stack technique
 - **Monorepo pnpm** avec `packages/backend` et `packages/frontend`
 - **Backend**: Express.js + TypeScript, Prisma ORM, PostgreSQL 16 (Docker), JWT auth, Zod validation
