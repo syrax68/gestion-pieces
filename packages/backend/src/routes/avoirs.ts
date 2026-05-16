@@ -18,7 +18,7 @@ const avoirItemSchema = z.object({
   designation: z.string().min(1, "Désignation requise"),
   quantite: z.number().int().positive(),
   prixUnitaire: z.number().positive(),
-  tva: z.number().min(0).max(100).default(0),
+
   retourStock: z.boolean().default(true),
 });
 
@@ -43,12 +43,9 @@ function computeAvoirTotals(items: z.infer<typeof avoirItemSchema>[]) {
   });
 
   const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
-  const tvaTotal = itemsWithTotals.reduce((sum, item) => {
-    return sum + item.total * (item.tva / 100);
-  }, 0);
-  const total = sousTotal + tvaTotal;
+  const total = sousTotal;
 
-  return { itemsWithTotals, sousTotal, tvaTotal, total };
+  return { itemsWithTotals, sousTotal, tvaTotal: 0, total };
 }
 
 // Get all avoirs
@@ -114,7 +111,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
             designation: item.designation,
             quantite: item.quantite,
             prixUnitaire: item.prixUnitaire,
-            tva: item.tva,
+            tva: 0,
             total: item.total,
             retourStock: item.retourStock,
           })),

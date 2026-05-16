@@ -26,7 +26,6 @@ interface FormData {
   prixAchat: number;
   stock: number;
   stockMin: number;
-  tauxTVA: number;
 }
 
 export default function PieceForm({ piece, open, onClose, onSave, saving }: PieceFormProps) {
@@ -43,7 +42,6 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
     prixAchat: 0,
     stock: 0,
     stockMin: 0,
-    tauxTVA: 0,
   });
 
   useEffect(() => {
@@ -64,7 +62,6 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
         prixAchat: piece.prixAchat || 0,
         stock: piece.stock,
         stockMin: piece.stockMin,
-        tauxTVA: piece.tauxTVA || 0,
       });
     } else {
       setFormData({
@@ -77,8 +74,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
         prixAchat: 0,
         stock: 0,
         stockMin: 0,
-        tauxTVA: 0,
-      });
+          });
     }
   }, [piece, open]);
 
@@ -106,7 +102,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
       prixAchat: formData.prixAchat ? Number(formData.prixAchat) : undefined,
       stock: Number(formData.stock),
       stockMin: Number(formData.stockMin),
-      tauxTVA: Number(formData.tauxTVA),
+
       marqueId: formData.marqueId || undefined,
       categorieId: formData.categorieId || undefined,
     };
@@ -191,11 +187,6 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
                 />
               </div>
             </div>
-            <div className="w-1/3">
-              <Label htmlFor="tauxTVA">TVA (%)</Label>
-              <Input id="tauxTVA" name="tauxTVA" type="number" step="0.1" value={formData.tauxTVA} onChange={handleChange} />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="stock">Stock *</Label>

@@ -41,7 +41,6 @@ interface CartItem {
   description?: string;
   quantite: number;
   prixUnitaire: number;
-  tva: number;
   total: number;
 }
 
@@ -72,7 +71,6 @@ export default function DevisPage() {
   const [notes, setNotes] = useState("");
   const [conditions, setConditions] = useState("");
   const [dateValidite, setDateValidite] = useState("");
-  const [tauxTVA, setTauxTVA] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -113,7 +111,6 @@ export default function DevisPage() {
       designation: "",
       quantite: 1,
       prixUnitaire: 0,
-      tva: tauxTVA,
       total: 0,
     };
     setCart([...cart, newItem]);
@@ -151,8 +148,7 @@ export default function DevisPage() {
   };
 
   const calculateSousTotal = () => cart.reduce((acc, item) => acc + item.total, 0);
-  const calculateTVA = () => (calculateSousTotal() * tauxTVA) / 100;
-  const calculateTotal = () => calculateSousTotal() + calculateTVA();
+  const calculateTotal = () => calculateSousTotal();
 
   const handleSaveDevis = async () => {
     if (cart.length === 0 || cart.some((item) => !item.pieceId && !item.designation)) {
@@ -171,7 +167,6 @@ export default function DevisPage() {
           description: item.description,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
-          tva: tauxTVA,
         })),
         conditions: conditions || undefined,
         notes: notes || undefined,
@@ -224,13 +219,9 @@ export default function DevisPage() {
         description: item.description || undefined,
         quantite: item.quantite,
         prixUnitaire: item.prixUnitaire,
-        tva: item.tva,
         total: item.total,
       })),
     );
-    if (devis.items.length > 0) {
-      setTauxTVA(devis.items[0].tva);
-    }
     setIsFormOpen(true);
   };
 
@@ -690,10 +681,6 @@ export default function DevisPage() {
                     <Input type="date" value={dateValidite} onChange={(e) => setDateValidite(e.target.value)} />
                     <p className="text-xs text-muted-foreground mt-1">Par défaut : 30 jours</p>
                   </div>
-                  <div>
-                    <Label>Taux TVA (%)</Label>
-                    <Input type="number" value={tauxTVA} onChange={(e) => setTauxTVA(Number(e.target.value))} />
-                  </div>
                 </div>
 
                 <div>
@@ -707,16 +694,8 @@ export default function DevisPage() {
                 </div>
 
                 <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between text-lg">
-                    <span>Sous-total HT:</span>
-                    <span className="font-semibold">{calculateSousTotal().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-lg">
-                    <span>TVA ({tauxTVA}%):</span>
-                    <span className="font-semibold">{calculateTVA().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-2xl font-bold pt-2 border-t">
-                    <span>Total TTC:</span>
+                  <div className="flex justify-between text-2xl font-bold">
+                    <span>Total:</span>
                     <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
                   </div>
                 </div>
@@ -880,12 +859,8 @@ function DevisPrintTemplate({ devis }: { devis: Devis }) {
               <span>- {fmt(devis.remise)} Fmg</span>
             </div>
           )}
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
-            <span style={{ color: "#555" }}>TVA</span>
-            <span>{fmt(devis.tva)} Fmg</span>
-          </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", marginTop: 6, backgroundColor: "#1a1a1a", color: "#fff", fontWeight: 700, fontSize: 15, borderRadius: 3 }}>
-            <span>TOTAL TTC</span>
+            <span>TOTAL</span>
             <span>{fmt(devis.total)} Fmg</span>
           </div>
         </div>

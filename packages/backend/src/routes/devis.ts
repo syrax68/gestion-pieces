@@ -19,7 +19,7 @@ const devisItemSchema = z.object({
   quantite: z.number().int().positive(),
   prixUnitaire: z.number().positive(),
   remise: z.number().min(0).max(100).default(0),
-  tva: z.number().min(0).max(100).default(0),
+
 });
 
 const devisSchema = z.object({
@@ -47,13 +47,9 @@ function computeDevisTotals(items: z.infer<typeof devisItemSchema>[], remise: nu
 
   const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
   const sousTotalApresRemise = sousTotal - remise;
-  const tvaTotal = itemsWithTotals.reduce((sum, item) => {
-    const itemHT = item.total * (sousTotal > 0 ? sousTotalApresRemise / sousTotal : 1);
-    return sum + itemHT * (item.tva / 100);
-  }, 0);
-  const total = sousTotalApresRemise + tvaTotal;
+  const total = sousTotalApresRemise;
 
-  return { itemsWithTotals, sousTotal, tvaTotal, total };
+  return { itemsWithTotals, sousTotal, tvaTotal: 0, total };
 }
 
 // Get all devis
@@ -132,7 +128,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
             quantite: item.quantite,
             prixUnitaire: item.prixUnitaire,
             remise: item.remise,
-            tva: item.tva,
+            tva: 0,
             total: item.total,
           })),
         },
@@ -193,7 +189,7 @@ router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => 
               quantite: item.quantite,
               prixUnitaire: item.prixUnitaire,
               remise: item.remise,
-              tva: item.tva,
+              tva: 0,
               total: item.total,
             })),
           },
@@ -268,7 +264,7 @@ router.post("/:id/convertir", isVendeurOrAdmin, async (req: AuthRequest, res: Re
           sousTotal: existing!.sousTotal,
           remise: existing!.remise,
           remisePourcent: existing!.remisePourcent,
-          tva: existing!.tva,
+          tva: 0,
           total: existing!.total,
           statut: "BROUILLON",
           notes: existing!.notes,
@@ -280,7 +276,7 @@ router.post("/:id/convertir", isVendeurOrAdmin, async (req: AuthRequest, res: Re
               quantite: item.quantite,
               prixUnitaire: item.prixUnitaire,
               remise: item.remise,
-              tva: item.tva,
+              tva: 0,
               total: item.total,
             })),
           },

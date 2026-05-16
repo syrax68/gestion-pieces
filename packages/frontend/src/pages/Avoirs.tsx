@@ -31,7 +31,6 @@ interface CartItem {
   designation: string;
   quantite: number;
   prixUnitaire: number;
-  tva: number;
   total: number;
   retourStock: boolean;
 }
@@ -59,7 +58,6 @@ export default function AvoirsPage() {
   const [motif, setMotif] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [notes, setNotes] = useState("");
-  const [tauxTVA, setTauxTVA] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -101,7 +99,6 @@ export default function AvoirsPage() {
           designation: item.designation,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
-          tva: item.tva,
           total: item.total,
           retourStock: true,
         })),
@@ -116,7 +113,6 @@ export default function AvoirsPage() {
       designation: "",
       quantite: 1,
       prixUnitaire: 0,
-      tva: tauxTVA,
       total: 0,
       retourStock: true,
     };
@@ -156,8 +152,7 @@ export default function AvoirsPage() {
   };
 
   const calculateSousTotal = () => cart.reduce((acc, item) => acc + item.total, 0);
-  const calculateTVA = () => (calculateSousTotal() * tauxTVA) / 100;
-  const calculateTotal = () => calculateSousTotal() + calculateTVA();
+  const calculateTotal = () => calculateSousTotal();
 
   const handleSaveAvoir = async () => {
     if (!motif.trim()) {
@@ -180,7 +175,6 @@ export default function AvoirsPage() {
           designation: item.designation,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
-          tva: tauxTVA,
           retourStock: item.retourStock,
         })),
         notes: notes || undefined,
@@ -508,25 +502,13 @@ export default function AvoirsPage() {
               <CardContent className="pt-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Taux TVA (%)</Label>
-                    <Input type="number" value={tauxTVA} onChange={(e) => setTauxTVA(Number(e.target.value))} />
-                  </div>
-                  <div>
                     <Label>Notes (optionnel)</Label>
                     <Textarea placeholder="Notes..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between text-lg">
-                    <span>Sous-total HT:</span>
-                    <span className="font-semibold">{calculateSousTotal().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-lg">
-                    <span>TVA ({tauxTVA}%):</span>
-                    <span className="font-semibold">{calculateTVA().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-2xl font-bold pt-2 border-t">
+                  <div className="flex justify-between text-2xl font-bold">
                     <span>Total avoir:</span>
                     <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
                   </div>

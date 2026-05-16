@@ -20,7 +20,7 @@ const factureItemSchema = z.object({
   quantite: z.number().int().positive(),
   prixUnitaire: z.number().positive(),
   remise: z.number().min(0).max(100).default(0),
-  tva: z.number().min(0).max(100).default(0),
+
 });
 
 const factureSchema = z.object({
@@ -85,13 +85,9 @@ function computeFactureTotals(items: z.infer<typeof factureItemSchema>[], remise
 
   const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
   const sousTotalApresRemise = sousTotal - remise;
-  const tvaTotal = itemsWithTotals.reduce((sum, item) => {
-    const itemHT = item.total * (sousTotal > 0 ? sousTotalApresRemise / sousTotal : 1);
-    return sum + itemHT * (item.tva / 100);
-  }, 0);
-  const total = sousTotalApresRemise + tvaTotal;
+  const total = sousTotalApresRemise;
 
-  return { itemsWithTotals, sousTotal, tvaTotal, total };
+  return { itemsWithTotals, sousTotal, tvaTotal: 0, total };
 }
 
 // Create facture (as BROUILLON — no stock adjustment yet)
@@ -124,7 +120,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
             quantite: item.quantite,
             prixUnitaire: item.prixUnitaire,
             remise: item.remise,
-            tva: item.tva,
+            tva: 0,
             total: item.total,
           })),
         },
@@ -183,7 +179,7 @@ router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => 
               quantite: item.quantite,
               prixUnitaire: item.prixUnitaire,
               remise: item.remise,
-              tva: item.tva,
+              tva: 0,
               total: item.total,
             })),
           },

@@ -17,7 +17,6 @@ interface CartItem {
   pieceReference: string;
   quantite: number;
   prixUnitaire: number;
-  tva: number;
   total: number;
 }
 
@@ -59,7 +58,6 @@ export default function Achats() {
       pieceReference: "",
       quantite: 1,
       prixUnitaire: 0,
-      tva: 0,
       total: 0,
     };
     setCart([...cart, newItem]);
@@ -113,7 +111,6 @@ export default function Achats() {
           pieceId: item.pieceId,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
-          tva: item.tva,
         })),
         notes: notes || undefined,
       });

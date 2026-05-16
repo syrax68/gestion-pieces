@@ -38,7 +38,6 @@ interface CartItem {
   description?: string;
   quantite: number;
   prixUnitaire: number;
-  tva: number;
   total: number;
 }
 
@@ -68,7 +67,6 @@ export default function Factures() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [methodePaiement, setMethodePaiement] = useState("especes");
   const [notes, setNotes] = useState("");
-  const [tauxTVA, setTauxTVA] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -109,7 +107,6 @@ export default function Factures() {
       designation: "",
       quantite: 1,
       prixUnitaire: 0,
-      tva: tauxTVA,
       total: 0,
     };
     setCart([...cart, newItem]);
@@ -150,12 +147,8 @@ export default function Factures() {
     return cart.reduce((acc, item) => acc + item.total, 0);
   };
 
-  const calculateTVA = () => {
-    return (calculateSousTotal() * tauxTVA) / 100;
-  };
-
   const calculateTotal = () => {
-    return calculateSousTotal() + calculateTVA();
+    return calculateSousTotal();
   };
 
   const handleSaveFacture = async () => {
@@ -176,7 +169,6 @@ export default function Factures() {
           description: item.description,
           quantite: item.quantite,
           prixUnitaire: item.prixUnitaire,
-          tva: tauxTVA,
         })),
         methodePaiement,
         notes: notes || undefined,
@@ -228,13 +220,9 @@ export default function Factures() {
         description: item.description || undefined,
         quantite: item.quantite,
         prixUnitaire: item.prixUnitaire,
-        tva: item.tva,
         total: item.total,
       })),
     );
-    if (facture.items.length > 0) {
-      setTauxTVA(facture.items[0].tva);
-    }
     setIsFormOpen(true);
   };
 
@@ -701,10 +689,6 @@ export default function Factures() {
                       <option value="virement">Virement</option>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Taux TVA (%)</Label>
-                    <Input type="number" value={tauxTVA} onChange={(e) => setTauxTVA(Number(e.target.value))} />
-                  </div>
                 </div>
 
                 <div>
@@ -713,16 +697,8 @@ export default function Factures() {
                 </div>
 
                 <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between text-lg">
-                    <span>Sous-total HT:</span>
-                    <span className="font-semibold">{calculateSousTotal().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-lg">
-                    <span>TVA ({tauxTVA}%):</span>
-                    <span className="font-semibold">{calculateTVA().toLocaleString()} Fmg</span>
-                  </div>
-                  <div className="flex justify-between text-2xl font-bold pt-2 border-t">
-                    <span>Total TTC:</span>
+                  <div className="flex justify-between text-2xl font-bold">
+                    <span>Total:</span>
                     <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
                   </div>
                 </div>
@@ -814,16 +790,8 @@ export default function Factures() {
 
               {/* Totaux */}
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span>Sous-total HT:</span>
-                  <span className="font-semibold">{selectedFacture.sousTotal.toLocaleString()} Fmg</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>TVA:</span>
-                  <span className="font-semibold">{selectedFacture.tva.toLocaleString()} Fmg</span>
-                </div>
                 <div className="flex justify-between py-1 border-t-2 border-black text-base font-bold print:text-sm">
-                  <span>Total TTC:</span>
+                  <span>Total:</span>
                   <span>{selectedFacture.total.toLocaleString()} Fmg</span>
                 </div>
                 {selectedFacture.methodePaiement && (

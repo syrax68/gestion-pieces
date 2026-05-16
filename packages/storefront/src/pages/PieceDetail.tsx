@@ -239,10 +239,6 @@ export default function PieceDetail() {
                 <span>Sous-catégorie : {piece.sousCategorie.nom}</span>
               </div>
             )}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Tag className="h-4 w-4 text-gray-400" />
-              <span>TVA : {piece.tauxTVA}%</span>
-            </div>
           </div>
 
           {/* Compatibilité */}

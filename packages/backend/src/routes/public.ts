@@ -33,15 +33,13 @@ async function getBoutiqueOr404(boutiqueId: string, res: Response) {
 }
 
 // Calcul des totaux (même logique que devis.ts)
-function computeItemTotals<T extends { quantite: number; prixUnitaire: number; tva: number }>(items: T[]) {
+function computeItemTotals<T extends { quantite: number; prixUnitaire: number }>(items: T[]) {
   const itemsWithTotals = items.map((item) => ({
     ...item,
     total: item.quantite * item.prixUnitaire,
   }));
   const sousTotal = itemsWithTotals.reduce((sum, i) => sum + i.total, 0);
-  const tvaTotal = itemsWithTotals.reduce((sum, i) => sum + i.total * (i.tva / 100), 0);
-  const total = sousTotal + tvaTotal;
-  return { itemsWithTotals, sousTotal, tvaTotal, total };
+  return { itemsWithTotals, sousTotal, tvaTotal: 0, total: sousTotal };
 }
 
 // ─── GET /:boutiqueId/boutique ─────────────────────────────────────────────
@@ -341,7 +339,6 @@ router.post("/:boutiqueId/commandes", limiteCommande, async (req: Request, res: 
         designation: piece.nom,
         quantite: item.quantite,
         prixUnitaire: Number(piece.prixVente),
-        tva: Number(piece.tauxTVA),
         remise: 0,
       };
     });
@@ -373,7 +370,7 @@ router.post("/:boutiqueId/commandes", limiteCommande, async (req: Request, res: 
             quantite: item.quantite,
             prixUnitaire: item.prixUnitaire,
             remise: 0,
-            tva: item.tva,
+            tva: 0,
             total: item.total,
           })),
         },

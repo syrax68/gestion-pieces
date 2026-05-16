@@ -17,7 +17,7 @@ const achatItemSchema = z.object({
   pieceId: z.string(),
   quantite: z.number().int().positive(),
   prixUnitaire: z.number().positive(),
-  tva: z.number().min(0).max(100).default(0),
+
 });
 
 const achatSchema = z.object({
@@ -75,14 +75,12 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
     const numero = await generateNumero("achat", "ACH");
 
     const itemsWithTotals = data.items.map((item) => {
-      const totalHT = item.quantite * item.prixUnitaire;
-      const totalTTC = totalHT * (1 + item.tva / 100);
-      return { ...item, total: totalTTC };
+      const total = item.quantite * item.prixUnitaire;
+      return { ...item, total };
     });
 
-    const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.quantite * item.prixUnitaire, 0);
-    const tvaTotal = itemsWithTotals.reduce((sum, item) => sum + item.quantite * item.prixUnitaire * (item.tva / 100), 0);
-    const total = sousTotal + tvaTotal;
+    const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
+    const total = sousTotal;
 
     const achat = await prisma.$transaction(async (tx) => {
       const newAchat = await tx.achat.create({
@@ -91,7 +89,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
           numeroFacture: data.numeroFacture,
           fournisseurId: data.fournisseurId,
           sousTotal,
-          tva: tvaTotal,
+          tva: 0,
           total,
           statut: "PAYEE",
           notes: data.notes,
@@ -101,7 +99,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
               pieceId: item.pieceId,
               quantite: item.quantite,
               prixUnitaire: item.prixUnitaire,
-              tva: item.tva,
+              tva: 0,
               total: item.total,
             })),
           },
