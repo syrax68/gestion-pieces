@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "if [ \"$DEPLOY_TARGET\" = 'storefront' ]; then npm install --prefix packages/storefront --ignore-scripts && chmod -R +x packages/storefront/node_modules/.bin/ && npm run build --prefix packages/storefront; else npm install --prefix packages/backend --omit=dev && npm run build --prefix packages/backend; fi",
-    "postinstall": "if [ \"$DEPLOY_TARGET\" != 'storefront' ] && [ \"$DEPLOY_TARGET\" != 'frontend' ]; then npm install --prefix packages/backend && chmod -R +x packages/backend/node_modules/.bin/ && node_modules/.bin/prisma generate --schema packages/backend/prisma/schema.prisma && packages/backend/node_modules/.bin/tsc --project packages/backend/tsconfig.json; fi",
+    "postinstall": "if [ \"$DEPLOY_TARGET\" != 'storefront' ] && [ \"$DEPLOY_TARGET\" != 'frontend' ]; then npm install --prefix packages/backend && chmod -R +x packages/backend/node_modules/.bin/ && node_modules/.bin/prisma generate --schema packages/backend/prisma/schema.prisma && node_modules/.bin/tsc --project packages/backend/tsconfig.json; fi",
     "start": "node server.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
@@ -24,9 +24,8 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "prisma": "5.22.0"
+    "prisma": "5.22.0",
+    "typescript": "5.3.3"
   },
-  "devDependencies": {
-    "typescript": "^5.3.3"
-  }
+  "devDependencies": {}
 }
