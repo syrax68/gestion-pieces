@@ -9,6 +9,7 @@ import { piecesApi, categoriesApi, marquesApi, exportApi, imagesApi, Piece, Cate
 import PieceForm from "@/components/PieceForm";
 import ReplacePieceDialog from "@/components/ReplacePieceDialog";
 import ImportPiecesDialog from "@/components/ImportPiecesDialog";
+import { ImportFactureDialog } from "@/components/ImportFactureDialog";
 import { useToast } from "@/components/ui/Toaster";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,6 +32,7 @@ export default function PiecesList() {
   const [saving, setSaving] = useState(false);
   const [replacePiece, setReplacePiece] = useState<Piece | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [uploadingPieceId, setUploadingPieceId] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<string | null>(null);
@@ -245,6 +247,12 @@ export default function PiecesList() {
             <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
               <FileUp className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Import XLSX</span>
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={() => setShowInvoiceDialog(true)}>
+              <Camera className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Importer facture</span>
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
@@ -614,6 +622,12 @@ export default function PiecesList() {
       <ImportPiecesDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
+        onSuccess={loadData}
+      />
+
+      <ImportFactureDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
         onSuccess={loadData}
       />
     </div>

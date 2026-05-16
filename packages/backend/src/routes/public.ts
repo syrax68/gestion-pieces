@@ -3,8 +3,22 @@ import { z } from "zod";
 import { prisma } from "../index.js";
 import { handleRouteError } from "../utils/handleError.js";
 import { generateNumero } from "../utils/generateNumero.js";
+import { botProtection } from "../middleware/botProtection.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
+
+// ─── Protection anti-bot globale sur toutes les routes publiques ──────────────
+router.use(botProtection);
+
+// Limites par type d'endpoint
+const limiteLecture = createRateLimiter({ windowMs: 60_000, max: 60 });        // 60 req/min
+const limiteCommande = createRateLimiter({                                       // 5 req/15min
+  windowMs: 15 * 60_000,
+  max: 5,
+  message: "Trop de tentatives de commande. Réessayez dans 15 minutes.",
+});
+const limiteMesCommandes = createRateLimiter({ windowMs: 60_000, max: 10 });    // 10 req/min
 
 // Validation du boutiqueId et récupération de la boutique
 async function getBoutiqueOr404(boutiqueId: string, res: Response) {
@@ -31,7 +45,7 @@ function computeItemTotals<T extends { quantite: number; prixUnitaire: number; t
 }
 
 // ─── GET /:boutiqueId/boutique ─────────────────────────────────────────────
-router.get("/:boutiqueId/boutique", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/boutique", limiteLecture, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -51,7 +65,7 @@ router.get("/:boutiqueId/boutique", async (req: Request, res: Response) => {
 });
 
 // ─── GET /:boutiqueId/categories ──────────────────────────────────────────
-router.get("/:boutiqueId/categories", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/categories", limiteLecture, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -81,7 +95,7 @@ router.get("/:boutiqueId/categories", async (req: Request, res: Response) => {
 });
 
 // ─── GET /:boutiqueId/marques ─────────────────────────────────────────────
-router.get("/:boutiqueId/marques", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/marques", limiteLecture, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -111,7 +125,7 @@ router.get("/:boutiqueId/marques", async (req: Request, res: Response) => {
 });
 
 // ─── GET /:boutiqueId/pieces ──────────────────────────────────────────────
-router.get("/:boutiqueId/pieces", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/pieces", limiteLecture, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -184,7 +198,7 @@ router.get("/:boutiqueId/pieces", async (req: Request, res: Response) => {
 });
 
 // ─── GET /:boutiqueId/pieces/:id ──────────────────────────────────────────
-router.get("/:boutiqueId/pieces/:id", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/pieces/:id", limiteLecture, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -259,7 +273,7 @@ const commandeSchema = z.object({
     .min(1, "Le panier est vide"),
 });
 
-router.post("/:boutiqueId/commandes", async (req: Request, res: Response) => {
+router.post("/:boutiqueId/commandes", limiteCommande, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;
@@ -378,7 +392,7 @@ router.post("/:boutiqueId/commandes", async (req: Request, res: Response) => {
 });
 
 // ─── GET /:boutiqueId/mes-commandes?telephone=xxx ─────────────────────────
-router.get("/:boutiqueId/mes-commandes", async (req: Request, res: Response) => {
+router.get("/:boutiqueId/mes-commandes", limiteMesCommandes, async (req: Request, res: Response) => {
   try {
     const boutique = await getBoutiqueOr404(req.params.boutiqueId, res);
     if (!boutique) return;

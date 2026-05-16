@@ -582,6 +582,22 @@ export const piecesApi = {
     const blob = await res.blob();
     downloadBlob(blob, "template_import_pieces.xlsx");
   },
+  parseInvoice: async (file: File): Promise<{ items: { nom: string; quantite: number; prix: number }[] }> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("invoice", file);
+    const res = await fetch(`${API_URL}/pieces/parse-invoice`, {
+      method: "POST",
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    return handleResponse<{ items: { nom: string; quantite: number; prix: number }[] }>(res);
+  },
+  bulkUpdate: (
+    items: { nom: string; quantite: number; prix: number }[],
+    devise: "ariary" | "fmg",
+  ): Promise<{ created: number; updated: number; errors: string[] }> =>
+    api.post("/pieces/bulk-update", { items, devise }),
 };
 
 export const imagesApi = {

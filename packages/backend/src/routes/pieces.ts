@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../index.js";
 import { authenticate, isVendeurOrAdmin, isAdmin, AuthRequest } from "../middleware/auth.js";
 import { injectBoutique } from "../middleware/tenant.js";
@@ -11,6 +12,8 @@ import { handleRouteError } from "../utils/handleError.js";
 import { ensureBoutique } from "../utils/ensureBoutique.js";
 import { adjustStock } from "../services/stockService.js";
 import { exportToXlsx } from "../utils/xlsx.js";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const xlsxUpload = multer({
   storage: multer.memoryStorage(),
@@ -35,7 +38,7 @@ const pieceSchema = z.object({
   description: z.string().optional().nullable(),
   prixVente: z.number().positive("Le prix de vente doit être positif"),
   prixAchat: z.number().positive().optional().nullable(),
-  tauxTVA: z.number().min(0).max(100).default(0),
+
   stock: z.number().int().min(0).default(0),
   stockMin: z.number().int().min(0).default(0),
   stockMax: z.number().int().min(0).optional().nullable(),
@@ -103,7 +106,6 @@ router.get("/import/template", isVendeurOrAdmin, async (_req, res: Response) => 
         prixAchat: 9000,
         stock: 10,
         stockMin: 2,
-        tauxTVA: 0,
         marque: "Honda",
         categorie: "Filtration",
         codeBarres: "1234567890123",
@@ -116,7 +118,6 @@ router.get("/import/template", isVendeurOrAdmin, async (_req, res: Response) => 
         prixAchat: 15000,
         stock: 5,
         stockMin: 1,
-        tauxTVA: 0,
         marque: "",
         categorie: "Freinage",
         codeBarres: "",
@@ -188,7 +189,6 @@ router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: 
         const prixAchat = Number(row["prixAchat"] ?? 0) || null;
         const stock = Math.max(0, parseInt(String(row["stock"] ?? 0)) || 0);
         const stockMin = Math.max(0, parseInt(String(row["stockMin"] ?? 0)) || 0);
-        const tauxTVA = Math.min(100, Math.max(0, Number(row["tauxTVA"] ?? 0) || 0));
         const codeBarres = String(row["codeBarres"] ?? "").trim() || null;
         const description = String(row["description"] ?? "").trim() || null;
 
@@ -200,7 +200,7 @@ router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: 
             prixAchat,
             stock,
             stockMin,
-            tauxTVA,
+            tauxTVA: 0,
             codeBarres,
             description,
             marqueId,
@@ -226,6 +226,133 @@ router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: 
     res.json(results);
   } catch (error) {
     handleRouteError(res, error, "l'import des pièces");
+  }
+});
+
+// Parse invoice image with Claude Vision → extract pieces list
+const invoiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Seules les images sont acceptées (jpg, png, webp…)"));
+    }
+  },
+});
+
+router.post("/parse-invoice", isVendeurOrAdmin, invoiceUpload.single("invoice"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Aucune image fournie" });
+
+    const base64 = req.file.buffer.toString("base64");
+    const mediaType = req.file.mimetype as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 2048,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: base64 },
+            },
+            {
+              type: "text",
+              text: `Analyse cette facture fournisseur de pièces moto.
+Extrais UNIQUEMENT les lignes de produits avec :
+- nom : désignation de la pièce (string)
+- quantite : quantité (number, entier)
+- prix : prix unitaire (number, sans espaces ni séparateurs de milliers)
+
+Ignore le total, les références, codes-barres, en-têtes, pied de page.
+Si une ligne a une quantité illisible ou nulle, mets quantite: 1.
+Retourne UNIQUEMENT un JSON valide, rien d'autre :
+{"items":[{"nom":"...","quantite":0,"prix":0}]}`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const text = message.content[0].type === "text" ? message.content[0].text.trim() : "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(422).json({ error: "Aucune pièce détectée, vérifiez la photo" });
+
+    const parsed = JSON.parse(jsonMatch[0]) as { items: { nom: string; quantite: number; prix: number }[] };
+    const items = (parsed.items ?? []).filter((it) => it.nom && it.nom.trim().length > 0);
+
+    res.json({ items });
+  } catch (error) {
+    handleRouteError(res, error, "l'analyse de la facture");
+  }
+});
+
+// Bulk upsert pieces from parsed invoice
+const bulkUpdateSchema = z.object({
+  devise: z.enum(["ariary", "fmg"]).default("ariary"),
+  items: z.array(z.object({
+    nom: z.string().min(1),
+    quantite: z.number().int().min(0),
+    prix: z.number().min(0),
+  })).min(1),
+});
+
+router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { devise, items } = bulkUpdateSchema.parse(req.body);
+    const boutiqueId = req.boutiqueId!;
+    const results = { created: 0, updated: 0, errors: [] as string[] };
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        const prixFinal = devise === "fmg" ? item.prix / 5 : item.prix;
+
+        const existing = await prisma.piece.findFirst({
+          where: { nom: { equals: item.nom.trim(), mode: "insensitive" }, boutiqueId },
+        });
+
+        if (existing) {
+          await prisma.piece.update({
+            where: { id: existing.id },
+            data: { stock: item.quantite, prixAchat: prixFinal },
+          });
+          results.updated++;
+        } else {
+          const reference = `IMPORT-${Date.now()}-${i}`;
+          await prisma.piece.create({
+            data: {
+              reference,
+              nom: item.nom.trim(),
+              stock: item.quantite,
+              prixAchat: prixFinal,
+              prixVente: prixFinal,
+              tauxTVA: 0,
+              boutiqueId,
+            },
+          });
+          results.created++;
+        }
+      } catch (err) {
+        results.errors.push(`${item.nom}: ${err instanceof Error ? err.message : "Erreur"}`);
+      }
+    }
+
+    await logActivity(
+      req.user!.userId,
+      "CREATE",
+      "PIECE",
+      boutiqueId,
+      `Import facture : ${results.created} créée(s), ${results.updated} mise(s) à jour`,
+    );
+
+    res.json(results);
+  } catch (error) {
+    handleRouteError(res, error, "la mise à jour des pièces");
   }
 });
 
@@ -498,13 +625,10 @@ router.post("/:id/remplacer", isVendeurOrAdmin, async (req: AuthRequest, res: Re
       for (const factureId of affectedFactureIds) {
         const items = await tx.factureItem.findMany({ where: { factureId } });
         const sousTotal = items.reduce((sum, item) => sum + Number(item.total), 0);
-        const facture = await tx.facture.findUnique({ where: { id: factureId } });
-        const tvaPourcent = facture ? Number(facture.tva) / (Number(facture.sousTotal) || 1) : 0;
-        const tva = Math.round(sousTotal * tvaPourcent);
-        const total = sousTotal + tva;
+        const total = sousTotal;
         await tx.facture.update({
           where: { id: factureId },
-          data: { sousTotal, tva, total },
+          data: { sousTotal, tva: 0, total },
         });
       }
 
