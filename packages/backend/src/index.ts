@@ -117,7 +117,29 @@ const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  warmupDatabase().catch((e) => console.error("Warm-up error:", e));
 });
+
+async function warmupDatabase(attempts = 10, delay = 3000): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      console.log("✅ Database connection ready");
+      setInterval(async () => {
+        try {
+          await prisma.$queryRaw`SELECT 1`;
+        } catch {}
+      }, 4 * 60 * 1000);
+      return;
+    } catch {
+      if (i < attempts - 1) {
+        console.log(`⏳ Database not ready, retry in ${delay / 1000}s... (${i + 1}/${attempts})`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  console.warn("⚠️  Database warm-up timed out — will retry on first request");
+}
 
 // Graceful shutdown
 process.on("SIGINT", async () => {

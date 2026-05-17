@@ -210,10 +210,25 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
         {step === "review" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                {items.length} pièce(s) détectée(s) — devise :{" "}
-                <span className="font-medium">{devise === "fmg" ? "FMG (÷5 → Ariary)" : "Ariary"}</span>
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-gray-600">{items.length} pièce(s) détectée(s)</p>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={devise === "ariary" ? "default" : "outline"}
+                    onClick={() => setDevise("ariary")}
+                  >
+                    Ariary
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={devise === "fmg" ? "default" : "outline"}
+                    onClick={() => setDevise("fmg")}
+                  >
+                    FMG (÷5)
+                  </Button>
+                </div>
+              </div>
               <Button size="sm" variant="outline" onClick={() => setStep("upload")}>
                 ← Retour
               </Button>
@@ -225,7 +240,9 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
                   <tr>
                     <th className="text-left px-3 py-2 font-medium w-1/2">Désignation</th>
                     <th className="text-right px-3 py-2 font-medium w-24">Quantité</th>
-                    <th className="text-right px-3 py-2 font-medium w-32">Prix unitaire</th>
+                    <th className="text-right px-3 py-2 font-medium w-32">
+                      {devise === "fmg" ? "Prix (Ar)" : "Prix unitaire"}
+                    </th>
                     <th className="w-10" />
                   </tr>
                 </thead>
@@ -252,8 +269,15 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
                         <Input
                           type="number"
                           min={0}
-                          value={item.prix}
-                          onChange={(e) => updateItem(i, "prix", e.target.value)}
+                          value={devise === "fmg" ? Math.round(item.prix / 5) : item.prix}
+                          onChange={(e) => {
+                            const v = Number(e.target.value) || 0;
+                            setItems((prev) =>
+                              prev.map((it, idx) =>
+                                idx === i ? { ...it, prix: devise === "fmg" ? v * 5 : v } : it,
+                              ),
+                            );
+                          }}
                           className="h-8 text-sm text-right"
                         />
                       </td>
