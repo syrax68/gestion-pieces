@@ -226,10 +226,12 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} />
-            </div>
+            {piece && (
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
