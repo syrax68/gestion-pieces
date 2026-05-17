@@ -8,11 +8,9 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  Tag,
   Layers,
   Weight,
   Ruler,
-  Bike,
 } from "lucide-react";
 import { publicApi, type PieceDetail as PieceDetailType } from "../lib/api";
 import { useCart } from "../contexts/CartContext";
@@ -241,32 +239,6 @@ export default function PieceDetail() {
             )}
           </div>
 
-          {/* Compatibilité */}
-          {piece.modelesCompatibles.length > 0 && (
-            <div className="mt-6 border-t border-gray-100 pt-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Bike className="h-4 w-4 text-gray-400" />
-                Compatibilité véhicules
-              </h2>
-              <ul className="space-y-1.5">
-                {piece.modelesCompatibles.map((comp, i) => (
-                  <li key={i} className="text-sm text-gray-600">
-                    <span className="font-medium">{comp.modele.marque.nom} {comp.modele.nom}</span>
-                    {(comp.modele.anneeDebut || comp.modele.anneeFin) && (
-                      <span className="text-gray-400">
-                        {" "}({comp.modele.anneeDebut}
-                        {comp.modele.anneeFin && comp.modele.anneeFin !== comp.modele.anneeDebut
-                          ? `–${comp.modele.anneeFin}`
-                          : ""}
-                        )
-                      </span>
-                    )}
-                    {comp.notes && <span className="text-gray-400"> — {comp.notes}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       </div>
     </div>

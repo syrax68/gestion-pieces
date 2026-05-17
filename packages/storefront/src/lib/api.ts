@@ -53,17 +53,6 @@ export interface PieceDetail extends PieceListItem {
   dimensions: string | null;
   sousCategorie: { id: string; nom: string } | null;
   images: Array<{ id: string; url: string; alt: string | null; ordre: number; principale: boolean }>;
-  modelesCompatibles: Array<{
-    notes: string | null;
-    modele: {
-      id: string;
-      nom: string;
-      type: string;
-      anneeDebut: number | null;
-      anneeFin: number | null;
-      marque: { nom: string };
-    };
-  }>;
 }
 
 export interface PiecesResponse {

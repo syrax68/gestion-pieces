@@ -146,17 +146,14 @@ export default function PieceCard({ piece }: PieceCardProps) {
           {piece.nom}
         </h3>
 
-        {/* Réf + prix sur la même ligne */}
-        <div className="flex items-center justify-between mt-2 gap-2">
-          <span className="text-[11px] text-gray-400">Réf. {piece.reference}</span>
-          <div className="text-right shrink-0">
-            <span className="text-base font-bold text-gray-900">{formatCurrency(prixAffiche)}</span>
-            {piece.enPromotion && piece.prixPromo && (
-              <span className="block text-[11px] text-gray-400 line-through leading-none">
-                {formatCurrency(piece.prixVente)}
-              </span>
-            )}
-          </div>
+        {/* Prix */}
+        <div className="mt-2">
+          <span className="text-base font-bold text-gray-900">{formatCurrency(prixAffiche)} Ar</span>
+          {piece.enPromotion && piece.prixPromo && (
+            <span className="ml-2 text-[11px] text-gray-400 line-through">
+              {formatCurrency(piece.prixVente)} Ar
+            </span>
+          )}
         </div>
 
         {/* Bouton Ajouter — visible seulement sur mobile (hover indisponible sur touch) */}
