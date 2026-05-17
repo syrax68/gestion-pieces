@@ -32,7 +32,7 @@ const router = Router();
 router.use(authenticate, injectBoutique);
 
 const pieceSchema = z.object({
-  reference: z.string().min(1, "Référence requise"),
+  reference: z.string().optional(),
   codeBarres: z.string().optional().nullable(),
   nom: z.string().min(1, "Nom requis"),
   description: z.string().optional().nullable(),
@@ -397,9 +397,19 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = pieceSchema.parse(req.body);
 
-    const existing = await prisma.piece.findUnique({ where: { reference: data.reference } });
-    if (existing) {
-      return res.status(400).json({ error: "Cette référence existe déjà" });
+    // Auto-generate reference if not provided
+    if (!data.reference) {
+      const count = await prisma.piece.count({ where: { boutiqueId: req.boutiqueId! } });
+      let candidate = `P-${String(count + 1).padStart(4, "0")}`;
+      let offset = 0;
+      while (await prisma.piece.findFirst({ where: { reference: candidate, boutiqueId: req.boutiqueId! } })) {
+        offset++;
+        candidate = `P-${String(count + 1 + offset).padStart(4, "0")}`;
+      }
+      data.reference = candidate;
+    } else {
+      const existing = await prisma.piece.findFirst({ where: { reference: data.reference, boutiqueId: req.boutiqueId! } });
+      if (existing) return res.status(400).json({ error: "Cette référence existe déjà" });
     }
 
     if (data.codeBarres) {
@@ -410,7 +420,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
     }
 
     const piece = await prisma.piece.create({
-      data: { ...data, boutiqueId: req.boutiqueId! },
+      data: { ...data, reference: data.reference!, boutiqueId: req.boutiqueId! },
       include: pieceIncludes,
     });
 

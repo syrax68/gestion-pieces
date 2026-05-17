@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Piece, Categorie, Marque, categoriesApi, marquesApi } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Label } from "@/components/ui/Label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 interface PieceFormProps {
   piece?: Piece;
@@ -41,13 +41,17 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
     prixVente: 0,
     prixAchat: 0,
     stock: 0,
-    stockMin: 0,
+    stockMin: 1,
   });
 
+  // Marque autocomplete state
+  const [marqueInput, setMarqueInput] = useState("");
+  const [marqueOpen, setMarqueOpen] = useState(false);
+  const [creatingMarque, setCreatingMarque] = useState(false);
+  const marqueRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (open) {
-      loadCategoriesAndMarques();
-    }
+    if (open) loadCategoriesAndMarques();
   }, [open]);
 
   useEffect(() => {
@@ -63,20 +67,24 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
         stock: piece.stock,
         stockMin: piece.stockMin,
       });
+      const marque = piece.marque ? (piece.marque as Marque) : undefined;
+      setMarqueInput(marque?.nom || "");
     } else {
-      setFormData({
-        reference: "",
-        nom: "",
-        marqueId: "",
-        categorieId: "",
-        description: "",
-        prixVente: 0,
-        prixAchat: 0,
-        stock: 0,
-        stockMin: 0,
-          });
+      setFormData({ reference: "", nom: "", marqueId: "", categorieId: "", description: "", prixVente: 0, prixAchat: 0, stock: 0, stockMin: 1 });
+      setMarqueInput("");
     }
   }, [piece, open]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (marqueRef.current && !marqueRef.current.contains(e.target as Node)) {
+        setMarqueOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const loadCategoriesAndMarques = async () => {
     try {
@@ -91,22 +99,44 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
     }
   };
 
+  const filteredMarques = marques.filter((m) => m.nom.toLowerCase().includes(marqueInput.toLowerCase()));
+  const exactMatch = marques.some((m) => m.nom.toLowerCase() === marqueInput.toLowerCase());
+  const showCreateOption = marqueInput.trim().length > 0 && !exactMatch;
+
+  const selectMarque = (m: Marque) => {
+    setFormData((prev) => ({ ...prev, marqueId: m.id }));
+    setMarqueInput(m.nom);
+    setMarqueOpen(false);
+  };
+
+  const createAndSelectMarque = async () => {
+    if (!marqueInput.trim()) return;
+    try {
+      setCreatingMarque(true);
+      const newMarque = await marquesApi.create({ nom: marqueInput.trim() });
+      setMarques((prev) => [...prev, newMarque]);
+      selectMarque(newMarque);
+    } catch {
+      // ignore
+    } finally {
+      setCreatingMarque(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const pieceData: Partial<Piece> = {
-      reference: formData.reference,
       nom: formData.nom,
       description: formData.description || undefined,
       prixVente: Number(formData.prixVente),
       prixAchat: formData.prixAchat ? Number(formData.prixAchat) : undefined,
       stock: Number(formData.stock),
       stockMin: Number(formData.stockMin),
-
       marqueId: formData.marqueId || undefined,
       categorieId: formData.categorieId || undefined,
     };
-
+    // Include reference only in edit mode
+    if (piece) pieceData.reference = formData.reference;
     onSave(pieceData);
   };
 
@@ -128,29 +158,61 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="reference">Référence *</Label>
-                <Input id="reference" name="reference" value={formData.reference} onChange={handleChange} required />
-              </div>
-              <div>
+            <div className={piece ? "grid grid-cols-2 gap-4" : ""}>
+              {piece && (
+                <div>
+                  <Label htmlFor="reference">Référence</Label>
+                  <Input id="reference" name="reference" value={formData.reference} onChange={handleChange} />
+                </div>
+              )}
+              <div className={piece ? "" : ""}>
                 <Label htmlFor="nom">Nom *</Label>
                 <Input id="nom" name="nom" value={formData.nom} onChange={handleChange} required />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="marqueId">Marque</Label>
-                <Select id="marqueId" name="marqueId" value={formData.marqueId} onChange={handleChange}>
-                  <option value="">Sélectionner...</option>
-                  {marques.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nom}
-                    </option>
-                  ))}
-                </Select>
+              {/* Marque autocomplete */}
+              <div ref={marqueRef} className="relative">
+                <Label>Marque</Label>
+                <Input
+                  value={marqueInput}
+                  onChange={(e) => {
+                    setMarqueInput(e.target.value);
+                    setFormData((prev) => ({ ...prev, marqueId: "" }));
+                    setMarqueOpen(true);
+                  }}
+                  onFocus={() => setMarqueOpen(true)}
+                  placeholder="Rechercher ou créer..."
+                  autoComplete="off"
+                />
+                {marqueOpen && (filteredMarques.length > 0 || showCreateOption) && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {filteredMarques.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                        onMouseDown={() => selectMarque(m)}
+                      >
+                        {m.nom}
+                      </button>
+                    ))}
+                    {showCreateOption && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm text-blue-600 font-medium flex items-center gap-1 border-t border-gray-100"
+                        onMouseDown={createAndSelectMarque}
+                        disabled={creatingMarque}
+                      >
+                        {creatingMarque ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        Créer "{marqueInput.trim()}"
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div>
                 <Label htmlFor="categorieId">Catégorie</Label>
                 <Select id="categorieId" name="categorieId" value={formData.categorieId} onChange={handleChange}>
@@ -176,25 +238,18 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
               </div>
               <div>
                 <Label htmlFor="prixVente">Prix de vente (Ar) *</Label>
-                <Input
-                  id="prixVente"
-                  name="prixVente"
-                  type="number"
-                  step="0.01"
-                  value={formData.prixVente}
-                  onChange={handleChange}
-                  required
-                />
+                <Input id="prixVente" name="prixVente" type="number" step="0.01" value={formData.prixVente} onChange={handleChange} required />
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="stock">Stock *</Label>
                 <Input id="stock" name="stock" type="number" value={formData.stock} onChange={handleChange} required />
               </div>
               <div>
-                <Label htmlFor="stockMin">Stock minimum *</Label>
-                <Input id="stockMin" name="stockMin" type="number" value={formData.stockMin} onChange={handleChange} required />
+                <Label htmlFor="stockMin">Stock minimum</Label>
+                <Input id="stockMin" name="stockMin" type="number" value={formData.stockMin} onChange={handleChange} />
               </div>
             </div>
 
