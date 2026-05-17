@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 
 import authRoutes from "./routes/auth.js";
 import piecesRoutes from "./routes/pieces.js";
@@ -29,8 +32,12 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+neonConfig.webSocketConstructor = ws;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaNeon(pool);
+
 const app = express();
-export const prisma = new PrismaClient();
+export const prisma = new PrismaClient({ adapter });
 
 // Middleware
 app.use(
@@ -102,33 +109,10 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: "Une erreur interne est survenue" });
 });
 
-// Warm up Neon connection (cold start : la DB se suspend après 5min d'inactivité)
-async function warmupDatabase(attempts = 10, delay = 3000): Promise<void> {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      console.log("✅ Database connection ready");
-      // Keep-alive : ping toutes les 4 minutes pour empêcher Neon de se suspendre
-      setInterval(async () => {
-        try { await prisma.$queryRaw`SELECT 1`; } catch {}
-      }, 4 * 60 * 1000);
-      return;
-    } catch {
-      if (i < attempts - 1) {
-        console.log(`⏳ Database not ready, retry in ${delay / 1000}s... (${i + 1}/${attempts})`);
-        await new Promise((r) => setTimeout(r, delay));
-      }
-    }
-  }
-  console.warn("⚠️  Database warm-up timed out — will retry on first request");
-}
-
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  // Lance le warm-up en arrière-plan (sans bloquer le démarrage du serveur)
-  warmupDatabase().catch((e) => console.error("Warm-up error:", e));
 });
 
 // Graceful shutdown
