@@ -165,7 +165,6 @@ export const initializeDefaultData = (): void => {
         fournisseur: "Moto Parts Direct",
         dateAjout: new Date().toISOString(),
         derniereMaj: new Date().toISOString(),
-        modeles: ["MT-07", "XSR700"],
       },
       {
         id: "2",
@@ -182,7 +181,6 @@ export const initializeDefaultData = (): void => {
         fournisseur: "Speed Racing",
         dateAjout: new Date().toISOString(),
         derniereMaj: new Date().toISOString(),
-        modeles: ["CBR600RR", "CBR600F"],
       },
       {
         id: "3",
@@ -199,7 +197,6 @@ export const initializeDefaultData = (): void => {
         fournisseur: "Bike Components",
         dateAjout: new Date().toISOString(),
         derniereMaj: new Date().toISOString(),
-        modeles: ["Universel"],
       },
     ];
     savePieces(defaultPieces);
