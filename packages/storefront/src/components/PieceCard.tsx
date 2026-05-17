@@ -148,10 +148,10 @@ export default function PieceCard({ piece }: PieceCardProps) {
 
         {/* Prix */}
         <div className="mt-2">
-          <span className="text-base font-bold text-gray-900">{formatCurrency(prixAffiche)} Ar</span>
+          <span className="text-base font-bold text-gray-900">{formatCurrency(prixAffiche)}</span>
           {piece.enPromotion && piece.prixPromo && (
             <span className="ml-2 text-[11px] text-gray-400 line-through">
-              {formatCurrency(piece.prixVente)} Ar
+              {formatCurrency(piece.prixVente)}
             </span>
           )}
         </div>

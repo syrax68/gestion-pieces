@@ -10,7 +10,7 @@ export function formatCurrency(amount: number): string {
     style: "decimal",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount) + " Fmg";
+  }).format(amount) + " Ar";
 }
 
 export function formatPrix(prixVente: number, prixPromo: number | null, enPromotion: boolean): number {
