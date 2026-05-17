@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 
 import authRoutes from "./routes/auth.js";
 import piecesRoutes from "./routes/pieces.js";
@@ -31,13 +32,10 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-// Bypasse le moteur Rust Prisma (incompatible Hostinger) via l'adapter pg TCP
-const { Pool } = pg;
-const dbUrl = new URL(process.env.DATABASE_URL!);
-dbUrl.searchParams.delete("pgbouncer");
-dbUrl.searchParams.delete("connect_timeout");
-const pool = new Pool({ connectionString: dbUrl.toString(), ssl: { rejectUnauthorized: false } });
-const adapter = new PrismaPg(pool);
+// WebSocket (port 443) — seule connexion autorisée par Hostinger
+neonConfig.webSocketConstructor = ws;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaNeon(pool);
 
 const app = express();
 export const prisma = new PrismaClient({ adapter });
