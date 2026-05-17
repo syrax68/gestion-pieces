@@ -2,8 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 
 import authRoutes from "./routes/auth.js";
 import piecesRoutes from "./routes/pieces.js";
@@ -31,15 +29,8 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-// Nettoyer les paramètres Prisma-only que pg ne comprend pas
-const dbUrl = new URL(process.env.DATABASE_URL!);
-dbUrl.searchParams.delete("pgbouncer");
-dbUrl.searchParams.delete("connect_timeout");
-const pool = new Pool({ connectionString: dbUrl.toString() });
-const adapter = new PrismaPg(pool);
-
 const app = express();
-export const prisma = new PrismaClient({ adapter });
+export const prisma = new PrismaClient();
 
 // Middleware
 app.use(
