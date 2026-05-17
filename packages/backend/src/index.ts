@@ -2,9 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 import authRoutes from "./routes/auth.js";
 import piecesRoutes from "./routes/pieces.js";
@@ -32,9 +31,8 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-neonConfig.webSocketConstructor = ws;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(pool);
+const adapter = new PrismaPg(pool);
 
 const app = express();
 export const prisma = new PrismaClient({ adapter });
@@ -51,8 +49,11 @@ app.use(
         return callback(null, true);
       }
 
-      // Autoriser tous les sous-domaines kojakojamoto.com
+      // Autoriser tous les sous-domaines kojakojamoto.com et hostingersite.com
       if (origin.endsWith(".kojakojamoto.com") || origin === "https://kojakojamoto.com") {
+        return callback(null, true);
+      }
+      if (origin.endsWith(".hostingersite.com")) {
         return callback(null, true);
       }
 
