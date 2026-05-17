@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "if [ \"$DEPLOY_TARGET\" = 'storefront' ]; then npm install --prefix packages/storefront --ignore-scripts && chmod -R +x packages/storefront/node_modules/.bin/ && npm run build --prefix packages/storefront; else rm -rf packages/backend/node_modules && cd packages/backend && npm install && ../../node_modules/.bin/prisma generate && ../../node_modules/.bin/tsc; fi",
+    "build": "if [ \"$DEPLOY_TARGET\" = 'storefront' ]; then npm install --prefix packages/storefront --ignore-scripts && chmod -R +x packages/storefront/node_modules/.bin/ && npm run build --prefix packages/storefront; else rm -rf packages/backend/node_modules && cd packages/backend && npm install && node_modules/.bin/prisma generate && ../../node_modules/.bin/tsc; fi",
     "start": "node server.js",
     "dev": "pnpm -r --parallel run dev",
     "dev:frontend": "pnpm --filter frontend dev",
@@ -22,8 +22,6 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "prisma": "5.22.0",
     "typescript": "5.3.3"
   },
   "devDependencies": {}
