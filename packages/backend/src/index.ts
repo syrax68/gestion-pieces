@@ -49,12 +49,13 @@ app.use(
         return callback(null, true);
       }
 
-      // Whitelist supplémentaire via FRONTEND_URL
-      const allowedOrigins = process.env.FRONTEND_URL?.split(",").map(o => o.trim()) || [];
-      if (allowedOrigins.includes(origin)) {
+      // Whitelist via FRONTEND_URL (peut contenir plusieurs URL séparées par des virgules)
+      const allowedOrigins = process.env.FRONTEND_URL?.split(",").map(o => o.trim()).filter(Boolean) || [];
+      if (allowedOrigins.some(allowed => origin === allowed || origin.endsWith(`.${allowed.replace(/^https?:\/\//, "")}`))) {
         return callback(null, true);
       }
 
+      console.warn(`[CORS] Origine bloquée : ${origin}`);
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
