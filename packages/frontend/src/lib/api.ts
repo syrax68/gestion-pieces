@@ -148,25 +148,6 @@ export interface Marque {
   _count?: { pieces: number };
 }
 
-export interface ModeleVehicule {
-  id: string;
-  nom: string;
-  anneeDebut?: number;
-  anneeFin?: number;
-  cylindree?: number;
-  type: "MOTO" | "SCOOTER" | "QUAD" | "AUTRE";
-  actif: boolean;
-  marqueId: string;
-  marque?: Marque;
-}
-
-export interface PieceModeleVehicule {
-  id: string;
-  pieceId: string;
-  modeleId: string;
-  notes?: string;
-  modele?: ModeleVehicule;
-}
 
 export interface PieceFournisseur {
   id: string;
@@ -226,7 +207,6 @@ export interface Piece {
   emplacementId?: string;
   emplacement?: Emplacement;
   images?: Image[];
-  modelesCompatibles?: PieceModeleVehicule[];
   fournisseurs?: PieceFournisseur[];
   historiquePrix?: HistoriquePrix[];
   createdAt: string;
@@ -552,9 +532,6 @@ export const piecesApi = {
   delete: (id: string) => api.delete(`/pieces/${id}`),
   adjustStock: (id: string, data: { type: string; quantite: number; motif?: string; reference?: string }) =>
     api.post<Piece>(`/pieces/${id}/stock`, data),
-  addCompatibility: (id: string, data: { modeleId: string; notes?: string }) =>
-    api.post<PieceModeleVehicule>(`/pieces/${id}/modeles`, data),
-  removeCompatibility: (id: string, modeleId: string) => api.delete(`/pieces/${id}/modeles/${modeleId}`),
   replace: (id: string, newPieceId: string) =>
     api.post<{
       message: string;

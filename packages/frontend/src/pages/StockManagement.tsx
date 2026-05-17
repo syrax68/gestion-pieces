@@ -111,7 +111,7 @@ export default function StockManagement() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{valeurTotaleStock.toLocaleString('fr-FR')} Fmg</div>
+            <div className="text-2xl font-bold">{valeurTotaleStock.toLocaleString('fr-FR')} Ar</div>
             <p className="text-xs text-muted-foreground mt-1">{pieces.length} pièces différentes</p>
           </CardContent>
         </Card>

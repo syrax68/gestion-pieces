@@ -103,7 +103,6 @@ model Piece {
   marque             Marque?               @relation(fields: [marqueId], references: [id])
   sousCategorie      SousCategorie?        @relation(fields: [sousCategorieId], references: [id])
   fournisseurs       PieceFournisseur[]
-  modelesCompatibles PieceModeleVehicule[]
 
   @@index([reference])
   @@index([codeBarres])
@@ -156,7 +155,6 @@ model Marque {
   actif           Boolean          @default(true)
   boutiqueId      String?
   boutique        Boutique?        @relation(fields: [boutiqueId], references: [id])
-  modelesVehicule ModeleVehicule[]
   pieces          Piece[]
 
   @@index([nom])
@@ -176,35 +174,6 @@ model Image {
   @@index([pieceId])
 }
 
-model ModeleVehicule {
-  id                String                @id @default(cuid())
-  nom               String
-  anneeDebut        Int?
-  anneeFin          Int?
-  cylindree         Int?
-  type              TypeVehicule          @default(MOTO)
-  actif             Boolean               @default(true)
-  marqueId          String
-  marque            Marque                @relation(fields: [marqueId], references: [id])
-  piecesCompatibles PieceModeleVehicule[]
-
-  @@unique([marqueId, nom, anneeDebut])
-  @@index([marqueId])
-  @@index([nom])
-}
-
-model PieceModeleVehicule {
-  id       String         @id @default(cuid())
-  notes    String?
-  pieceId  String
-  modeleId String
-  modele   ModeleVehicule @relation(fields: [modeleId], references: [id], onDelete: Cascade)
-  piece    Piece          @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-
-  @@unique([pieceId, modeleId])
-  @@index([pieceId])
-  @@index([modeleId])
-}
 
 model Emplacement {
   id          String    @id @default(cuid())
@@ -611,12 +580,6 @@ enum TypeMouvement {
   TRANSFERT
 }
 
-enum TypeVehicule {
-  MOTO
-  SCOOTER
-  QUAD
-  AUTRE
-}
 
 enum StatutInventaire {
   EN_COURS

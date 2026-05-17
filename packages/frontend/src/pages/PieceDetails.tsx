@@ -377,11 +377,11 @@ export default function PieceDetails() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">Prix de vente</p>
-                <p className="text-2xl font-bold">{piece.prixVente.toLocaleString()} Fmg</p>
+                <p className="text-2xl font-bold">{piece.prixVente.toLocaleString()} Ar</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Prix d'achat</p>
-                <p className="text-lg font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Fmg` : "-"}</p>
+                <p className="text-lg font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Ar` : "-"}</p>
               </div>
               {marge && (
                 <div>
@@ -438,7 +438,7 @@ function PriceHistoryCard({ historique }: { historique: HistoriquePrix[] }) {
             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => v.toLocaleString()} />
-            <Tooltip formatter={(value) => [`${(value as number).toLocaleString()} Fmg`]} />
+            <Tooltip formatter={(value) => [`${(value as number).toLocaleString()} Ar`]} />
             <Legend />
             <Line type="monotone" dataKey="Prix vente" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="Prix achat" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" />
@@ -461,9 +461,9 @@ function PriceHistoryCard({ historique }: { historique: HistoriquePrix[] }) {
                   <td className="py-1 px-2 text-muted-foreground text-xs">
                     {new Date(h.dateChangement).toLocaleDateString("fr-FR")}
                   </td>
-                  <td className="py-1 px-2 text-right font-medium">{h.prixVente.toLocaleString()} Fmg</td>
+                  <td className="py-1 px-2 text-right font-medium">{h.prixVente.toLocaleString()} Ar</td>
                   <td className="py-1 px-2 text-right text-muted-foreground">
-                    {h.prixAchat ? `${h.prixAchat.toLocaleString()} Fmg` : "—"}
+                    {h.prixAchat ? `${h.prixAchat.toLocaleString()} Ar` : "—"}
                   </td>
                   <td className="py-1 px-2 text-muted-foreground text-xs">{h.motif || "—"}</td>
                 </tr>

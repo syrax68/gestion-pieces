@@ -343,7 +343,7 @@ export default function AvoirsPage() {
                     <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">{avoir.motif}</td>
                     <td className="px-4 py-3 text-muted-foreground">{avoir.facture?.numero || "—"}</td>
                     <td className="px-4 py-3">{getStatutBadge(avoir.statut)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{avoir.total.toLocaleString()} Fmg</td>
+                    <td className="px-4 py-3 text-right font-bold">{avoir.total.toLocaleString()} Ar</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {avoir.statut === "EN_ATTENTE" && isVendeurOrAdmin && (
@@ -375,8 +375,8 @@ export default function AvoirsPage() {
                                 {item.retourStock && <Badge variant="secondary" className="ml-2 text-xs">Retour stock</Badge>}
                               </span>
                               <span className="text-muted-foreground">
-                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
-                                <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                {item.quantite} × {item.prixUnitaire.toLocaleString()} Ar ={" "}
+                                <span className="font-medium text-foreground">{item.total.toLocaleString()} Ar</span>
                               </span>
                             </div>
                           ))}
@@ -411,7 +411,7 @@ export default function AvoirsPage() {
                     <option value="">Aucune facture liée</option>
                     {factures.map((f) => (
                       <option key={f.id} value={f.id}>
-                        {f.numero} — {f.client?.nom || "Anonyme"} — {f.total.toLocaleString()} Fmg
+                        {f.numero} — {f.client?.nom || "Anonyme"} — {f.total.toLocaleString()} Ar
                       </option>
                     ))}
                   </Select>
@@ -510,7 +510,7 @@ export default function AvoirsPage() {
                 <div className="space-y-2 pt-4 border-t">
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total avoir:</span>
-                    <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
+                    <span className="text-primary">{calculateTotal().toLocaleString()} Ar</span>
                   </div>
                 </div>
               </CardContent>

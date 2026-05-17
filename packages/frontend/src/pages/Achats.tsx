@@ -193,7 +193,7 @@ export default function Achats() {
                   </div>
                   <div className="flex items-center gap-3">
                     {getStatutBadge(achat.statut)}
-                    <p className="text-xl font-bold">{achat.total.toFixed(2)} Fmg</p>
+                    <p className="text-xl font-bold">{achat.total.toFixed(2)} Ar</p>
                   </div>
                 </div>
               </CardHeader>
@@ -207,9 +207,9 @@ export default function Achats() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium">
-                          {item.quantite} × {item.prixUnitaire.toFixed(2)} Fmg
+                          {item.quantite} × {item.prixUnitaire.toFixed(2)} Ar
                         </p>
-                        <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Fmg</p>
+                        <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Ar</p>
                       </div>
                     </div>
                   ))}
@@ -305,7 +305,7 @@ export default function Achats() {
 
             <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
               <span className="text-lg font-medium">Total:</span>
-              <span className="text-2xl font-bold">{calculateTotal().toFixed(2)} Fmg</span>
+              <span className="text-2xl font-bold">{calculateTotal().toFixed(2)} Ar</span>
             </div>
           </div>
 

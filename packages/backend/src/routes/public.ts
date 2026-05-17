@@ -223,21 +223,6 @@ router.get("/:boutiqueId/pieces/:id", limiteLecture, async (req: Request, res: R
           select: { id: true, url: true, alt: true, ordre: true, principale: true },
           orderBy: [{ principale: "desc" }, { ordre: "asc" }],
         },
-        modelesCompatibles: {
-          select: {
-            notes: true,
-            modele: {
-              select: {
-                id: true,
-                nom: true,
-                type: true,
-                anneeDebut: true,
-                anneeFin: true,
-                marque: { select: { nom: true } },
-              },
-            },
-          },
-        },
       },
     });
 

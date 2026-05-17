@@ -45,7 +45,7 @@ export default function DashboardMultiBoutique() {
     );
   }
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat("fr-FR").format(value) + " Fmg";
+  const formatCurrency = (value: number) => new Intl.NumberFormat("fr-FR").format(value) + " Ar";
 
   const formatCurrencyShort = (value: number) => {
     if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + "M";

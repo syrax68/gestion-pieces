@@ -13,7 +13,6 @@ export interface Piece {
   fournisseur?: string;
   dateAjout: string;
   derniereMaj: string;
-  modeles?: string[];
 }
 
 export interface Categorie {

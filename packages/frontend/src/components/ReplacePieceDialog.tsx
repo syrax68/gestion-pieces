@@ -92,7 +92,7 @@ export default function ReplacePieceDialog({ piece, open, onClose, onSuccess }: 
                 </p>
               </div>
               <div className="text-right text-sm">
-                <p>Prix: {piece.prixVente.toLocaleString()} Fmg</p>
+                <p>Prix: {piece.prixVente.toLocaleString()} Ar</p>
                 <p>Stock: {piece.stock}</p>
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function ReplacePieceDialog({ piece, open, onClose, onSuccess }: 
                           </p>
                         </div>
                         <div className="text-right text-xs">
-                          <p>{p.prixVente.toLocaleString()} Fmg</p>
+                          <p>{p.prixVente.toLocaleString()} Ar</p>
                           <p>Stock: {p.stock}</p>
                         </div>
                       </div>
@@ -169,7 +169,7 @@ export default function ReplacePieceDialog({ piece, open, onClose, onSuccess }: 
                     </p>
                   </div>
                   <div className="text-right text-sm">
-                    <p>Prix: {selectedPiece.prixVente.toLocaleString()} Fmg</p>
+                    <p>Prix: {selectedPiece.prixVente.toLocaleString()} Ar</p>
                     <p>Stock: {selectedPiece.stock}</p>
                   </div>
                 </div>

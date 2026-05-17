@@ -405,7 +405,7 @@ export default function DevisPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="font-bold text-sm whitespace-nowrap">{devis.total.toLocaleString()} Fmg</span>
+                      <span className="font-bold text-sm whitespace-nowrap">{devis.total.toLocaleString()} Ar</span>
                       {expandedDevis === devis.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </div>
@@ -417,7 +417,7 @@ export default function DevisPage() {
                           <span className="truncate mr-2">{item.designation}</span>
                           <span className="text-muted-foreground whitespace-nowrap">
                             {item.quantite} × {item.prixUnitaire.toLocaleString()} ={" "}
-                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Ar</span>
                           </span>
                         </div>
                       ))}
@@ -503,7 +503,7 @@ export default function DevisPage() {
                         {new Date(devis.dateValidite).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </td>
                       <td className="px-4 py-3">{getStatutBadge(devis.statut)}</td>
-                      <td className="px-4 py-3 text-right font-bold">{devis.total.toLocaleString()} Fmg</td>
+                      <td className="px-4 py-3 text-right font-bold">{devis.total.toLocaleString()} Ar</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           {devis.statut === "BROUILLON" && isVendeurOrAdmin && (
@@ -555,8 +555,8 @@ export default function DevisPage() {
                               <div key={item.id} className="flex justify-between items-center text-sm py-1">
                                 <span>{item.designation}</span>
                                 <span className="text-muted-foreground">
-                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
-                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Ar ={" "}
+                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Ar</span>
                                 </span>
                               </div>
                             ))}
@@ -696,7 +696,7 @@ export default function DevisPage() {
                 <div className="space-y-2 pt-4 border-t">
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
+                    <span className="text-primary">{calculateTotal().toLocaleString()} Ar</span>
                   </div>
                 </div>
               </CardContent>
@@ -834,13 +834,13 @@ function DevisPrintTemplate({ devis }: { devis: Devis }) {
                 {item.description && <div style={{ fontSize: 10, color: "#777", marginTop: 2 }}>{item.description}</div>}
               </td>
               <td style={{ padding: "7px 10px", textAlign: "center", borderBottom: "1px solid #eee" }}>{item.quantite}</td>
-              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee" }}>{fmt(item.prixUnitaire)} Fmg</td>
+              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee" }}>{fmt(item.prixUnitaire)} Ar</td>
               {devis.items.some((i) => i.remise > 0) && (
                 <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee", color: "#e55" }}>
                   {item.remise > 0 ? `-${item.remise}%` : "—"}
                 </td>
               )}
-              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee", fontWeight: 600 }}>{fmt(item.total)} Fmg</td>
+              <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: "1px solid #eee", fontWeight: 600 }}>{fmt(item.total)} Ar</td>
             </tr>
           ))}
         </tbody>
@@ -851,17 +851,17 @@ function DevisPrintTemplate({ devis }: { devis: Devis }) {
         <div style={{ width: 280 }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
             <span style={{ color: "#555" }}>Sous-total HT</span>
-            <span>{fmt(devis.sousTotal)} Fmg</span>
+            <span>{fmt(devis.sousTotal)} Ar</span>
           </div>
           {devis.remise > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#e55" }}>
               <span>Remise</span>
-              <span>- {fmt(devis.remise)} Fmg</span>
+              <span>- {fmt(devis.remise)} Ar</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", marginTop: 6, backgroundColor: "#1a1a1a", color: "#fff", fontWeight: 700, fontSize: 15, borderRadius: 3 }}>
             <span>TOTAL</span>
-            <span>{fmt(devis.total)} Fmg</span>
+            <span>{fmt(devis.total)} Ar</span>
           </div>
         </div>
       </div>

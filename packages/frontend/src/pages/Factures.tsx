@@ -406,7 +406,7 @@ export default function Factures() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
-                    <span className="font-bold text-sm whitespace-nowrap">{facture.total.toLocaleString()} Fmg</span>
+                    <span className="font-bold text-sm whitespace-nowrap">{facture.total.toLocaleString()} Ar</span>
                     {expandedFacture === facture.id ? <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                   </div>
                 </div>
@@ -418,7 +418,7 @@ export default function Factures() {
                           <span className="truncate mr-2">{item.designation}</span>
                           <span className="text-muted-foreground whitespace-nowrap">
                             {item.quantite} × {item.prixUnitaire.toLocaleString()} ={" "}
-                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                            <span className="font-medium text-foreground">{item.total.toLocaleString()} Ar</span>
                           </span>
                         </div>
                       ))}
@@ -502,7 +502,7 @@ export default function Factures() {
                         {facture.items.length} article{facture.items.length > 1 ? "s" : ""}
                       </td>
                       <td className="px-4 py-3">{getStatutBadge(facture.statut)}</td>
-                      <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Fmg</td>
+                      <td className="px-4 py-3 text-right font-bold">{facture.total.toLocaleString()} Ar</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           {facture.statut === "BROUILLON" && isVendeurOrAdmin && (
@@ -544,8 +544,8 @@ export default function Factures() {
                               <div key={item.id} className="flex justify-between items-center text-sm py-1">
                                 <span>{item.designation}</span>
                                 <span className="text-muted-foreground">
-                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Fmg ={" "}
-                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Fmg</span>
+                                  {item.quantite} × {item.prixUnitaire.toLocaleString()} Ar ={" "}
+                                  <span className="font-medium text-foreground">{item.total.toLocaleString()} Ar</span>
                                 </span>
                               </div>
                             ))}
@@ -699,7 +699,7 @@ export default function Factures() {
                 <div className="space-y-2 pt-4 border-t">
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">{calculateTotal().toLocaleString()} Fmg</span>
+                    <span className="text-primary">{calculateTotal().toLocaleString()} Ar</span>
                   </div>
                 </div>
               </CardContent>
@@ -792,7 +792,7 @@ export default function Factures() {
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between py-1 border-t-2 border-black text-base font-bold print:text-sm">
                   <span>Total:</span>
-                  <span>{selectedFacture.total.toLocaleString()} Fmg</span>
+                  <span>{selectedFacture.total.toLocaleString()} Ar</span>
                 </div>
                 {selectedFacture.methodePaiement && (
                   <div className="text-[10px] text-muted-foreground">Payé par: {selectedFacture.methodePaiement}</div>

@@ -101,7 +101,7 @@ export default function Dashboard() {
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("fr-FR").format(value) + " Fmg";
+    return new Intl.NumberFormat("fr-FR").format(value) + " Ar";
   };
 
   const formatCurrencyShort = (value: number) => {

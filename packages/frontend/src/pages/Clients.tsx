@@ -340,7 +340,7 @@ export default function Clients() {
                               <span className="text-muted-foreground">{new Date(f.dateFacture).toLocaleDateString("fr-FR")}</span>
                               <Badge variant={getStatutVariant(f.statut)}>{formatStatut(f.statut)}</Badge>
                             </div>
-                            <span className="font-semibold whitespace-nowrap">{typeof f.total === "number" ? f.total.toFixed(2) : f.total} Fmg</span>
+                            <span className="font-semibold whitespace-nowrap">{typeof f.total === "number" ? f.total.toFixed(2) : f.total} Ar</span>
                           </div>
                         ))}
                         {clientFactures.length > 5 && (

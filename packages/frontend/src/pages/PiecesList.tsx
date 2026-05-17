@@ -566,11 +566,11 @@ export default function PiecesList() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Prix d'achat:</span>
-                        <span className="font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Fmg` : "-"}</span>
+                        <span className="font-medium">{piece.prixAchat ? `${piece.prixAchat.toLocaleString()} Ar` : "-"}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Prix de vente:</span>
-                        <span className="font-medium">{piece.prixVente.toLocaleString()} Fmg</span>
+                        <span className="font-medium">{piece.prixVente.toLocaleString()} Ar</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Stock:</span>

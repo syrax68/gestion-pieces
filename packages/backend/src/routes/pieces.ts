@@ -364,9 +364,6 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
       include: {
         ...pieceIncludes,
         images: { orderBy: { ordre: "asc" } },
-        modelesCompatibles: {
-          include: { modele: { include: { marque: true } } },
-        },
         fournisseurs: { include: { fournisseur: true } },
         mouvements: {
           orderBy: { date: "desc" },
@@ -545,31 +542,6 @@ router.post("/:id/stock", isVendeurOrAdmin, async (req: AuthRequest, res: Respon
   }
 });
 
-// Add compatible model to piece
-router.post("/:id/modeles", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { modeleId, notes } = req.body;
-
-    // Verify ownership
-    const piece = await prisma.piece.findUnique({ where: { id } });
-    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
-
-    if (!modeleId) {
-      return res.status(400).json({ error: "modeleId requis" });
-    }
-
-    const compatibility = await prisma.pieceModeleVehicule.create({
-      data: { pieceId: id, modeleId, notes },
-      include: { modele: { include: { marque: true } } },
-    });
-
-    res.status(201).json(compatibility);
-  } catch (error) {
-    handleRouteError(res, error, "l'ajout de la compatibilité");
-  }
-});
-
 // Replace piece (transfer all references from old piece to new piece)
 router.post("/:id/remplacer", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
@@ -673,24 +645,6 @@ router.post("/:id/remplacer", isVendeurOrAdmin, async (req: AuthRequest, res: Re
     });
   } catch (error) {
     handleRouteError(res, error, "le remplacement de la pièce");
-  }
-});
-
-// Remove compatible model from piece
-router.delete("/:id/modeles/:modeleId", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
-  try {
-    const { id, modeleId } = req.params;
-
-    // Verify ownership
-    const piece = await prisma.piece.findUnique({ where: { id } });
-    if (!(await ensureBoutique(piece, req, res, "Pièce"))) return;
-
-    await prisma.pieceModeleVehicule.delete({
-      where: { pieceId_modeleId: { pieceId: id, modeleId } },
-    });
-    res.json({ message: "Compatibilité supprimée" });
-  } catch (error) {
-    handleRouteError(res, error, "la suppression de la compatibilité");
   }
 });
 
