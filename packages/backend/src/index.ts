@@ -31,7 +31,11 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Nettoyer les paramètres Prisma-only que pg ne comprend pas
+const dbUrl = new URL(process.env.DATABASE_URL!);
+dbUrl.searchParams.delete("pgbouncer");
+dbUrl.searchParams.delete("connect_timeout");
+const pool = new Pool({ connectionString: dbUrl.toString() });
 const adapter = new PrismaPg(pool);
 
 const app = express();
