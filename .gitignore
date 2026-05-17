@@ -31,7 +31,8 @@ packages/backend/uploads/*
 .env
 .env.local
 .env.*.local
-.env.production
+packages/backend/.env.production
+packages/backend/.env
 
 # Package manager files (keep only locally, not on Hostinger)
 pnpm-lock.yaml
