@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback } from "react";
-import { Camera, Upload, Loader2, Check, Plus, AlertCircle, Trash2 } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Camera, Upload, Loader2, Check, Plus, AlertCircle, Trash2, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { piecesApi } from "@/lib/api";
+import { piecesApi, fournisseursApi, Fournisseur } from "@/lib/api";
 
 type InvoiceItem = {
   nom: string;
@@ -32,6 +32,18 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
   const [saveResult, setSaveResult] = useState<{ created: number; updated: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
+  const [fournisseurInput, setFournisseurInput] = useState("");
+  const [fournisseurId, setFournisseurId] = useState<string | undefined>();
+  const [fournisseurOpen, setFournisseurOpen] = useState(false);
+  const [creatingFournisseur, setCreatingFournisseur] = useState(false);
+
+  useEffect(() => {
+    if (step === "review") {
+      fournisseursApi.getAll().then(setFournisseurs).catch(() => {});
+    }
+  }, [step]);
+
   const reset = () => {
     setStep("upload");
     setDevise("ariary");
@@ -42,6 +54,9 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
     setSaving(false);
     setParseError(null);
     setSaveResult(null);
+    setFournisseurInput("");
+    setFournisseurId(undefined);
+    setFournisseurOpen(false);
   };
 
   const handleClose = (v: boolean) => {
@@ -84,7 +99,7 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await piecesApi.bulkUpdate(items, devise);
+      const result = await piecesApi.bulkUpdate(items, devise, fournisseurId);
       setSaveResult(result);
       setStep("done");
       onSuccess();
@@ -92,6 +107,31 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
       setParseError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const filteredFournisseurs = fournisseurs.filter((f) =>
+    f.nom.toLowerCase().includes(fournisseurInput.toLowerCase()),
+  );
+
+  const handleSelectFournisseur = (f: Fournisseur) => {
+    setFournisseurId(f.id);
+    setFournisseurInput(f.nom);
+    setFournisseurOpen(false);
+  };
+
+  const handleCreateFournisseur = async () => {
+    const nom = fournisseurInput.trim();
+    if (!nom) return;
+    setCreatingFournisseur(true);
+    try {
+      const created = await fournisseursApi.create({ nom, pays: "Madagascar" });
+      setFournisseurs((prev) => [...prev, created]);
+      handleSelectFournisseur(created);
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setCreatingFournisseur(false);
     }
   };
 
@@ -232,6 +272,60 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
               <Button size="sm" variant="outline" onClick={() => setStep("upload")}>
                 ← Retour
               </Button>
+            </div>
+
+            {/* Fournisseur autocomplete */}
+            <div className="relative">
+              <Label className="text-sm mb-1 block">Fournisseur (optionnel)</Label>
+              <div className="relative">
+                <Input
+                  value={fournisseurInput}
+                  onChange={(e) => {
+                    setFournisseurInput(e.target.value);
+                    setFournisseurId(undefined);
+                    setFournisseurOpen(true);
+                  }}
+                  onFocus={() => setFournisseurOpen(true)}
+                  onBlur={() => setTimeout(() => setFournisseurOpen(false), 150)}
+                  placeholder="Rechercher ou créer un fournisseur…"
+                  className="pr-8"
+                />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+              {fournisseurOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredFournisseurs.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onMouseDown={() => handleSelectFournisseur(f)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      {f.nom}
+                    </button>
+                  ))}
+                  {fournisseurInput.trim() && !filteredFournisseurs.some(
+                    (f) => f.nom.toLowerCase() === fournisseurInput.trim().toLowerCase(),
+                  ) && (
+                    <button
+                      type="button"
+                      onMouseDown={handleCreateFournisseur}
+                      disabled={creatingFournisseur}
+                      className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                    >
+                      {creatingFournisseur ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
+                      Créer "{fournisseurInput.trim()}"
+                    </button>
+                  )}
+                  {filteredFournisseurs.length === 0 && !fournisseurInput.trim() && (
+                    <p className="px-3 py-2 text-sm text-gray-400">Tapez pour rechercher…</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="border rounded-lg overflow-hidden">

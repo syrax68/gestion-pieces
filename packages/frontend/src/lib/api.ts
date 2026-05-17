@@ -573,8 +573,9 @@ export const piecesApi = {
   bulkUpdate: (
     items: { nom: string; quantite: number; prix: number }[],
     devise: "ariary" | "fmg",
+    fournisseurId?: string,
   ): Promise<{ created: number; updated: number; errors: string[] }> =>
-    api.post("/pieces/bulk-update", { items, devise }),
+    api.post("/pieces/bulk-update", { items, devise, fournisseurId }),
 };
 
 export const imagesApi = {

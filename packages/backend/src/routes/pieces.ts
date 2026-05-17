@@ -294,6 +294,7 @@ Retourne UNIQUEMENT un JSON valide, rien d'autre :
 // Bulk upsert pieces from parsed invoice
 const bulkUpdateSchema = z.object({
   devise: z.enum(["ariary", "fmg"]).default("ariary"),
+  fournisseurId: z.string().optional(),
   items: z.array(z.object({
     nom: z.string().min(1),
     quantite: z.number().int().min(0),
@@ -303,7 +304,7 @@ const bulkUpdateSchema = z.object({
 
 router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const { devise, items } = bulkUpdateSchema.parse(req.body);
+    const { devise, items, fournisseurId } = bulkUpdateSchema.parse(req.body);
     const boutiqueId = req.boutiqueId!;
     const results = { created: 0, updated: 0, errors: [] as string[] };
 
@@ -319,7 +320,11 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
         if (existing) {
           await prisma.piece.update({
             where: { id: existing.id },
-            data: { stock: item.quantite, prixAchat: prixFinal },
+            data: {
+              stock: item.quantite,
+              prixAchat: prixFinal,
+              ...(fournisseurId ? { fournisseurId } : {}),
+            },
           });
           results.updated++;
         } else {
@@ -333,6 +338,7 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
               prixVente: prixFinal,
               tauxTVA: 0,
               boutiqueId,
+              ...(fournisseurId ? { fournisseurId } : {}),
             },
           });
           results.created++;
