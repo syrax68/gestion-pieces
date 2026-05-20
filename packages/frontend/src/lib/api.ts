@@ -412,6 +412,16 @@ export interface Achat {
   items: AchatItem[];
 }
 
+export interface VenteJournaliere {
+  id: string;
+  date: string;
+  montant: number;
+  notes?: string;
+  boutiqueId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MouvementStock {
   id: string;
   type: "ENTREE" | "SORTIE" | "AJUSTEMENT" | "INVENTAIRE" | "RETOUR" | "TRANSFERT";
@@ -727,6 +737,22 @@ export const inventairesApi = {
   updateStatus: (id: string, statut: string) =>
     api.patch<Inventaire>(`/inventaires/${id}/statut`, { statut }),
   delete: (id: string) => api.delete(`/inventaires/${id}`),
+};
+
+export const ventesJournalieresApi = {
+  getAll: (params?: { from?: string; to?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const query = q.toString() ? `?${q}` : "";
+    return api.get<VenteJournaliere[]>(`/ventes-journalieres${query}`);
+  },
+  create: (data: { montant: number; date?: string; notes?: string }) =>
+    api.post<VenteJournaliere>("/ventes-journalieres", data),
+  update: (id: string, data: { montant: number; date?: string; notes?: string }) =>
+    api.put<VenteJournaliere>(`/ventes-journalieres/${id}`, data),
+  delete: (id: string) => api.delete(`/ventes-journalieres/${id}`),
 };
 
 export const achatsApi = {

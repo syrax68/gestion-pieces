@@ -31,10 +31,11 @@ model Boutique {
   fournisseurs   Fournisseur[]
   inventaires    Inventaire[]
   marques        Marque[]
-  mouvements     MouvementStock[]
-  pieces         Piece[]
-  sousCategories SousCategorie[]
-  users          User[]
+  mouvements          MouvementStock[]
+  pieces              Piece[]
+  sousCategories      SousCategorie[]
+  users               User[]
+  ventesJournalieres  VenteJournaliere[]
 
   @@index([nom])
 }
@@ -586,4 +587,18 @@ enum StatutInventaire {
   EN_COURS
   VALIDE
   ANNULE
+}
+
+model VenteJournaliere {
+  id         String   @id @default(cuid())
+  date       DateTime @default(now())
+  montant    Decimal  @db.Decimal(10, 2)
+  notes      String?
+  boutiqueId String
+  boutique   Boutique @relation(fields: [boutiqueId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([boutiqueId])
+  @@index([date])
 }

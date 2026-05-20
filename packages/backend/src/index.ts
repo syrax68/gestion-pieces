@@ -24,6 +24,7 @@ import avoirsRoutes from "./routes/avoirs.js";
 import inventairesRoutes from "./routes/inventaires.js";
 import imagesRoutes from "./routes/images.js";
 import publicRoutes from "./routes/public.js";
+import ventesJournalieresRoutes from "./routes/ventes-journalieres.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -95,6 +96,7 @@ app.use("/api/devis", devisRoutes);
 app.use("/api/avoirs", avoirsRoutes);
 app.use("/api/inventaires", inventairesRoutes);
 app.use("/api/images", imagesRoutes);
+app.use("/api/ventes-journalieres", ventesJournalieresRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

@@ -333,12 +333,10 @@ operationalRouter.get("/kpi", async (req, res) => {
 
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    const statutsValides = ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] as const;
-
-    const [factures, achats] = await Promise.all([
-      prisma.facture.findMany({
-        where: { boutiqueId, statut: { in: [...statutsValides] }, dateFacture: { gte: startOfYear } },
-        select: { total: true, dateFacture: true },
+    const [ventesJournalieres, achats] = await Promise.all([
+      prisma.venteJournaliere.findMany({
+        where: { boutiqueId, date: { gte: startOfYear } },
+        select: { montant: true, date: true },
       }),
       prisma.achat.findMany({
         where: { boutiqueId, dateAchat: { gte: startOfYear } },
@@ -347,7 +345,7 @@ operationalRouter.get("/kpi", async (req, res) => {
     ]);
 
     const sumVentes = (from: Date) =>
-      Math.round(factures.filter((f) => f.dateFacture >= from).reduce((s, f) => s + Number(f.total), 0));
+      Math.round(ventesJournalieres.filter((v) => v.date >= from).reduce((s, v) => s + Number(v.montant), 0));
 
     const sumAchats = (from: Date) =>
       Math.round(achats.filter((a) => a.dateAchat >= from).reduce((s, a) => s + Number(a.total), 0));
