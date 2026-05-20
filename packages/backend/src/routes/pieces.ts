@@ -192,7 +192,7 @@ router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: 
         const codeBarres = String(row["codeBarres"] ?? "").trim() || null;
         const description = String(row["description"] ?? "").trim() || null;
 
-        await prisma.piece.create({
+        const piece = await prisma.piece.create({
           data: {
             reference,
             nom,
@@ -208,6 +208,21 @@ router.post("/import", isVendeurOrAdmin, xlsxUpload.single("file"), async (req: 
             boutiqueId,
           },
         });
+
+        if (stock > 0) {
+          await prisma.$transaction(async (tx) => {
+            await adjustStock({
+              tx,
+              pieceId: piece.id,
+              boutiqueId,
+              quantite: stock,
+              type: "ENTREE",
+              motif: "Import Excel",
+              reference: null,
+              userId: req.user!.userId,
+            });
+          });
+        }
 
         results.imported++;
       } catch (err) {

@@ -333,7 +333,7 @@ operationalRouter.get("/kpi", async (req, res) => {
 
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    const [ventesJournalieres, achats] = await Promise.all([
+    const [ventesJournalieres, achats, mouvementsImport] = await Promise.all([
       prisma.venteJournaliere.findMany({
         where: { boutiqueId, date: { gte: startOfYear } },
         select: { montant: true, date: true },
@@ -342,13 +342,25 @@ operationalRouter.get("/kpi", async (req, res) => {
         where: { boutiqueId, dateAchat: { gte: startOfYear } },
         select: { total: true, dateAchat: true },
       }),
+      // Mouvements ENTREE créés par import Excel (pas par les achats fournisseurs)
+      prisma.mouvementStock.findMany({
+        where: { boutiqueId, type: "ENTREE", motif: "Import Excel", date: { gte: startOfYear } },
+        include: { piece: { select: { prixAchat: true } } },
+      }),
     ]);
 
     const sumVentes = (from: Date) =>
       Math.round(ventesJournalieres.filter((v) => v.date >= from).reduce((s, v) => s + Number(v.montant), 0));
 
-    const sumAchats = (from: Date) =>
-      Math.round(achats.filter((a) => a.dateAchat >= from).reduce((s, a) => s + Number(a.total), 0));
+    const sumAchats = (from: Date) => {
+      const totalAchats = achats
+        .filter((a) => a.dateAchat >= from)
+        .reduce((s, a) => s + Number(a.total), 0);
+      const totalImports = mouvementsImport
+        .filter((m) => m.date >= from)
+        .reduce((s, m) => s + m.quantite * Number(m.piece?.prixAchat ?? 0), 0);
+      return Math.round(totalAchats + totalImports);
+    };
 
     res.json({
       ventes: {
