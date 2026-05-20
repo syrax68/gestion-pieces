@@ -124,18 +124,23 @@ operationalRouter.get("/stats", async (req, res) => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayFactures = await prisma.facture.findMany({
-      where: { dateFacture: { gte: today }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
-    });
-    const todaySales = todayFactures.reduce((sum, f) => sum + Number(f.total), 0);
-
     const firstDayOfMonth = new Date();
     firstDayOfMonth.setDate(1);
     firstDayOfMonth.setHours(0, 0, 0, 0);
-    const monthFactures = await prisma.facture.findMany({
-      where: { dateFacture: { gte: firstDayOfMonth }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
-    });
-    const monthlySales = monthFactures.reduce((sum, f) => sum + Number(f.total), 0);
+
+    const [todayVentes, monthVentes] = await Promise.all([
+      prisma.venteJournaliere.findMany({
+        where: { boutiqueId, date: { gte: today } },
+        select: { montant: true },
+      }),
+      prisma.venteJournaliere.findMany({
+        where: { boutiqueId, date: { gte: firstDayOfMonth } },
+        select: { montant: true },
+      }),
+    ]);
+
+    const todaySales = todayVentes.reduce((sum, v) => sum + Number(v.montant), 0);
+    const monthlySales = monthVentes.reduce((sum, v) => sum + Number(v.montant), 0);
 
     res.json({
       totalPieces,

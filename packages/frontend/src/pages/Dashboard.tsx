@@ -27,17 +27,25 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ComposedChart,
-  Line,
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
+
+type Periode = "jour" | "semaine" | "mois" | "annee";
+
+const PERIODES: { value: Periode; label: string }[] = [
+  { value: "jour", label: "Aujourd'hui" },
+  { value: "semaine", label: "Semaine" },
+  { value: "mois", label: "Mois" },
+  { value: "annee", label: "Année" },
+];
 
 export default function Dashboard() {
   const { canEdit } = useAuth();
@@ -50,6 +58,7 @@ export default function Dashboard() {
   const [ventesRecentes, setVentesRecentes] = useState<VenteJournaliere[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
+  const [periode, setPeriode] = useState<Periode>("mois");
 
   // Dialog saisie vente
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -144,6 +153,11 @@ export default function Dashboard() {
     }
   };
 
+  const ventesMontant = kpi?.ventes[periode] ?? 0;
+  const achatsMontant = kpi?.achats[periode] ?? 0;
+  const marge = ventesMontant - achatsMontant;
+  const periodeLabel = PERIODES.find((p) => p.value === periode)?.label ?? "";
+
   return (
     <div className="space-y-8">
       <div>
@@ -208,104 +222,77 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* KPI Ventes + Achats */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Filtre période */}
+      <div className="flex gap-2">
+        {PERIODES.map((p) => (
+          <Button
+            key={p.value}
+            variant={periode === p.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriode(p.value)}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* KPI Ventes + Achats + Marge */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                KPI Ventes
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                Ventes
               </CardTitle>
-              <CardDescription>Ventes journalières saisies manuellement</CardDescription>
+              <CardDescription>{periodeLabel}</CardDescription>
             </div>
             {canEdit && (
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" />
-                Saisir
+              <Button size="sm" variant="outline" onClick={openCreate}>
+                <Plus className="h-4 w-4" />
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {(["jour", "semaine", "mois", "annee"] as const).map((p) => (
-                <div key={p} className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {p === "jour" ? "Aujourd'hui" : p === "semaine" ? "Cette semaine" : p === "mois" ? "Ce mois" : "Cette année"}
-                  </p>
-                  <p className="text-xl font-bold text-green-700 dark:text-green-400">
-                    {formatCurrency(kpi?.ventes[p] || 0)}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <p className="text-3xl font-bold text-green-700">{formatCurrency(ventesMontant)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-orange-600" />
-              KPI Achats fournisseurs
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShoppingCart className="h-4 w-4 text-orange-600" />
+              Achats fournisseurs
             </CardTitle>
-            <CardDescription>Dépenses par période (achats fournisseurs)</CardDescription>
+            <CardDescription>{periodeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {(["jour", "semaine", "mois", "annee"] as const).map((p) => (
-                <div key={p} className="rounded-lg bg-orange-50 dark:bg-orange-950 p-4">
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {p === "jour" ? "Aujourd'hui" : p === "semaine" ? "Cette semaine" : p === "mois" ? "Ce mois" : "Cette année"}
-                  </p>
-                  <p className="text-xl font-bold text-orange-700 dark:text-orange-400">
-                    {formatCurrency(kpi?.achats[p] || 0)}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <p className="text-3xl font-bold text-orange-700">{formatCurrency(achatsMontant)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="h-4 w-4 text-blue-600" />
+              Marge brute
+            </CardTitle>
+            <CardDescription>{periodeLabel}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className={`text-3xl font-bold ${marge >= 0 ? "text-blue-700" : "text-red-600"}`}>
+              {marge >= 0 ? "+" : ""}{formatCurrency(marge)}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Marge brute */}
-      {kpi && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-blue-600" />
-              Marge brute
-            </CardTitle>
-            <CardDescription>Ventes − Achats fournisseurs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {(["jour", "semaine", "mois", "annee"] as const).map((p) => {
-                const marge = (kpi.ventes[p] || 0) - (kpi.achats[p] || 0);
-                const isPositive = marge >= 0;
-                return (
-                  <div key={p} className={`rounded-lg p-4 ${isPositive ? "bg-blue-50 dark:bg-blue-950" : "bg-red-50 dark:bg-red-950"}`}>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {p === "jour" ? "Aujourd'hui" : p === "semaine" ? "Cette semaine" : p === "mois" ? "Ce mois" : "Cette année"}
-                    </p>
-                    <p className={`text-xl font-bold ${isPositive ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
-                      {isPositive ? "+" : ""}{formatCurrency(marge)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Ventes journalières récentes */}
       {ventesRecentes.length > 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Ventes journalières récentes</CardTitle>
-              <CardDescription>7 dernières saisies</CardDescription>
-            </div>
+          <CardHeader>
+            <CardTitle>Ventes journalières récentes</CardTitle>
+            <CardDescription>7 dernières saisies</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -412,7 +399,7 @@ export default function Dashboard() {
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
               <Button onClick={handleSave} disabled={saving || !form.montant}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 {editingVente ? "Modifier" : "Enregistrer"}
               </Button>
             </div>
