@@ -124,6 +124,7 @@ async function warmupDatabase(attempts = 10, delay = 3000): Promise<void> {
   for (let i = 0; i < attempts; i++) {
     try {
       await prisma.$queryRaw`SELECT 1`;
+      await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS unaccent`);
       console.log("✅ Database connection ready");
       setInterval(async () => {
         try {

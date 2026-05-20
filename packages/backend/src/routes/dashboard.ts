@@ -316,6 +316,61 @@ operationalRouter.get("/stock-overview", async (req, res) => {
   }
 });
 
+// KPI ventes + achats par période
+operationalRouter.get("/kpi", async (req, res) => {
+  try {
+    const boutiqueId = (req as AuthRequest).boutiqueId;
+    const now = new Date();
+
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    const statutsValides = ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] as const;
+
+    const [factures, achats] = await Promise.all([
+      prisma.facture.findMany({
+        where: { boutiqueId, statut: { in: [...statutsValides] }, dateFacture: { gte: startOfYear } },
+        select: { total: true, dateFacture: true },
+      }),
+      prisma.achat.findMany({
+        where: { boutiqueId, dateAchat: { gte: startOfYear } },
+        select: { total: true, dateAchat: true },
+      }),
+    ]);
+
+    const sumVentes = (from: Date) =>
+      Math.round(factures.filter((f) => f.dateFacture >= from).reduce((s, f) => s + Number(f.total), 0));
+
+    const sumAchats = (from: Date) =>
+      Math.round(achats.filter((a) => a.dateAchat >= from).reduce((s, a) => s + Number(a.total), 0));
+
+    res.json({
+      ventes: {
+        jour: sumVentes(startOfDay),
+        semaine: sumVentes(startOfWeek),
+        mois: sumVentes(startOfMonth),
+        annee: sumVentes(startOfYear),
+      },
+      achats: {
+        jour: sumAchats(startOfDay),
+        semaine: sumAchats(startOfWeek),
+        mois: sumAchats(startOfMonth),
+        annee: sumAchats(startOfYear),
+      },
+    });
+  } catch (error) {
+    handleRouteError(res, error, "la récupération des KPI");
+  }
+});
+
 // Activity summary (last 5 logs)
 operationalRouter.get("/activity-summary", async (req, res) => {
   try {

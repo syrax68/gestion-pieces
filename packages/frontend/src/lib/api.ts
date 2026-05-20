@@ -770,6 +770,11 @@ export const dashboardApi = {
   getTopPieces: () => api.get<TopPieceData[]>("/dashboard/top-pieces"),
   getStockOverview: () => api.get<StockOverviewData[]>("/dashboard/stock-overview"),
   getActivitySummary: () => api.get<ActivityLog[]>("/dashboard/activity-summary"),
+  getKpi: () =>
+    api.get<{
+      ventes: { jour: number; semaine: number; mois: number; annee: number };
+      achats: { jour: number; semaine: number; mois: number; annee: number };
+    }>("/dashboard/kpi"),
   getMultiBoutique: () => api.get<MultiBoutiqueData>("/dashboard/multi-boutique"),
 };
 

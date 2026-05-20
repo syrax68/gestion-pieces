@@ -27,8 +27,6 @@ import {
   Store,
   Building2,
   ClipboardList,
-  ClipboardCheck,
-  RotateCcw,
   KeyRound,
 } from "lucide-react";
 
@@ -153,18 +151,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="sm" className="w-full justify-start">
               <FileText className="mr-2 h-4 w-4" />
               Factures
-            </Button>
-          </Link>
-          <Link to="/avoirs" onClick={() => setMobileMenuOpen(false)}>
-            <Button variant="ghost" size="sm" className="w-full justify-start">
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Avoirs
-            </Button>
-          </Link>
-          <Link to="/inventaires" onClick={() => setMobileMenuOpen(false)}>
-            <Button variant="ghost" size="sm" className="w-full justify-start">
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              Inventaires
             </Button>
           </Link>
           <Link to="/clients" onClick={() => setMobileMenuOpen(false)}>

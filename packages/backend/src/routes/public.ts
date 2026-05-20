@@ -133,18 +133,25 @@ router.get("/:boutiqueId/pieces", limiteLecture, async (req: Request, res: Respo
     const limit = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || "20", 10)));
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
-      boutiqueId: req.params.boutiqueId,
-      actif: true,
-    };
-    if (search) {
-      where.OR = [
-        { nom: { contains: search, mode: "insensitive" } },
-        { reference: { contains: search, mode: "insensitive" } },
-      ];
-    }
+    const boutiqueId = req.params.boutiqueId;
+    const where: Record<string, unknown> = { boutiqueId, actif: true };
     if (categorieId) where.categorieId = categorieId;
     if (marqueId) where.marqueId = marqueId;
+
+    // Recherche accent-insensitive via unaccent PostgreSQL
+    if (search) {
+      const pattern = `%${search}%`;
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Piece"
+        WHERE "boutiqueId" = ${boutiqueId}
+          AND actif = true
+          AND (
+            unaccent(nom) ILIKE unaccent(${pattern})
+            OR unaccent(reference) ILIKE unaccent(${pattern})
+          )
+      `;
+      where.id = { in: rows.map((r) => r.id) };
+    }
 
     const [pieces, total] = await Promise.all([
       prisma.piece.findMany({

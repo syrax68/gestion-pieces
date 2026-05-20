@@ -1,17 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import {
   dashboardApi,
   DashboardStats,
-  Piece,
-  Facture,
-  MouvementStock,
   SalesChartData,
-  TopPieceData,
-  StockOverviewData,
-  ActivityLog,
 } from "@/lib/api";
 import {
   Package,
@@ -19,18 +11,11 @@ import {
   DollarSign,
   FileText,
   Loader2,
-  ArrowUp,
-  ArrowDown,
-  RefreshCw,
   TrendingUp,
-  Clock,
-  Pencil,
-  Plus,
-  Trash2,
-  ArrowRightLeft,
-  Download,
+  TrendingDown,
   Eye,
   EyeOff,
+  ShoppingCart,
 } from "lucide-react";
 import {
   BarChart,
@@ -40,49 +25,31 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   ComposedChart,
   Line,
 } from "recharts";
 
-const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
-
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentData, setRecentData] = useState<{
-    pieces: Piece[];
-    factures: Facture[];
-    mouvements: MouvementStock[];
-  } | null>(null);
-  const [lowStock, setLowStock] = useState<Piece[]>([]);
   const [salesChart, setSalesChart] = useState<SalesChartData[]>([]);
-  const [topPieces, setTopPieces] = useState<TopPieceData[]>([]);
-  const [stockOverview, setStockOverview] = useState<StockOverviewData[]>([]);
-  const [activitySummary, setActivitySummary] = useState<ActivityLog[]>([]);
+  const [kpi, setKpi] = useState<{
+    ventes: { jour: number; semaine: number; mois: number; annee: number };
+    achats: { jour: number; semaine: number; mois: number; annee: number };
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [statsData, recent, lowStockData, sales, top, overview, activity] = await Promise.all([
+        const [statsData, sales, kpiData] = await Promise.all([
           dashboardApi.getStats(),
-          dashboardApi.getRecent(),
-          dashboardApi.getLowStock(),
           dashboardApi.getSalesChart().catch(() => []),
-          dashboardApi.getTopPieces().catch(() => []),
-          dashboardApi.getStockOverview().catch(() => []),
-          dashboardApi.getActivitySummary().catch(() => []),
+          dashboardApi.getKpi().catch(() => null),
         ]);
         setStats(statsData);
-        setRecentData(recent);
-        setLowStock(lowStockData);
         setSalesChart(sales);
-        setTopPieces(top);
-        setStockOverview(overview);
-        setActivitySummary(activity);
+        setKpi(kpiData);
       } catch (error) {
         console.error("Error loading dashboard:", error);
       } finally {
@@ -110,65 +77,10 @@ export default function Dashboard() {
     return value.toString();
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-
-    if (hours < 1) return "À l'instant";
-    if (hours < 24) return `Il y a ${hours}h`;
-    if (days === 1) return "Hier";
-    if (days < 7) return `Il y a ${days} jours`;
-    return date.toLocaleDateString("fr-FR");
-  };
-
   const formatMonth = (mois: string) => {
     const [, month] = mois.split("-");
     const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
     return months[parseInt(month) - 1];
-  };
-
-  const getMouvementIcon = (type: string) => {
-    switch (type) {
-      case "ENTREE":
-        return <ArrowDown className="h-4 w-4 text-green-500" />;
-      case "SORTIE":
-        return <ArrowUp className="h-4 w-4 text-red-500" />;
-      default:
-        return <RefreshCw className="h-4 w-4 text-blue-500" />;
-    }
-  };
-
-  const getMouvementBadge = (type: string) => {
-    switch (type) {
-      case "ENTREE":
-        return <Badge variant="success">Entrée</Badge>;
-      case "SORTIE":
-        return <Badge variant="danger">Sortie</Badge>;
-      default:
-        return <Badge variant="default">Ajustement</Badge>;
-    }
-  };
-
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case "CREATE":
-        return <Plus className="h-3.5 w-3.5 text-green-500" />;
-      case "UPDATE":
-        return <Pencil className="h-3.5 w-3.5 text-blue-500" />;
-      case "DELETE":
-        return <Trash2 className="h-3.5 w-3.5 text-red-500" />;
-      case "STATUS_CHANGE":
-        return <ArrowRightLeft className="h-3.5 w-3.5 text-yellow-500" />;
-      case "STOCK_ADJUST":
-        return <RefreshCw className="h-3.5 w-3.5 text-purple-500" />;
-      case "EXPORT":
-        return <Download className="h-3.5 w-3.5 text-cyan-500" />;
-      default:
-        return <Clock className="h-3.5 w-3.5 text-slate-500" />;
-    }
   };
 
   const salesChartFormatted = salesChart.map((d) => ({
@@ -238,231 +150,136 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts Row 1: Ventes mensuelles */}
-      <div className="grid gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Ventes mensuelles
-            </CardTitle>
-            <CardDescription>Chiffre d'affaires des 12 derniers mois</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {salesChartFormatted.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={salesChartFormatted}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                  <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value, name) => [formatCurrency(Number(value)), name === "ventes" ? "Ventes" : "Tendance"]}
-                    labelFormatter={(label) => `Mois: ${label}`}
-                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
-                  />
-                  <Bar dataKey="ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Line
-                    type="monotone"
-                    dataKey="ventes"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    dot={{ fill: "#f59e0b", r: 4 }}
-                    activeDot={{ r: 6 }}
-                    name="tendance"
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune donnée de ventes</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2: Top pièces + Activité récente */}
+      {/* KPI Ventes + Achats */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Top 10 pièces vendues</CardTitle>
-            <CardDescription>Pièces les plus vendues (30 derniers jours)</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              KPI Ventes
+            </CardTitle>
+            <CardDescription>Chiffre d'affaires par période (factures)</CardDescription>
           </CardHeader>
           <CardContent>
-            {topPieces.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topPieces} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis dataKey="nom" type="category" width={90} tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      name === "quantite" ? `${value} unités` : formatCurrency(Number(value)),
-                      name === "quantite" ? "Quantité" : "Total",
-                    ]}
-                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
-                  />
-                  <Bar dataKey="quantite" fill="#10b981" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune vente récente</div>
-            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Aujourd'hui</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(kpi?.ventes.jour || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Cette semaine</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(kpi?.ventes.semaine || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Ce mois</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(kpi?.ventes.mois || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Cette année</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(kpi?.ventes.annee || 0)}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Activité récente
+              <ShoppingCart className="h-5 w-5 text-orange-600" />
+              KPI Achats fournisseurs
             </CardTitle>
-            <CardDescription>Dernières actions sur la plateforme</CardDescription>
+            <CardDescription>Dépenses par période (achats fournisseurs)</CardDescription>
           </CardHeader>
           <CardContent>
-            {activitySummary.length > 0 ? (
-              <div className="space-y-3">
-                {activitySummary.map((log) => (
-                  <div key={log.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">
-                    <div className="mt-0.5">{getActionIcon(log.action)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{log.details || `${log.action} ${log.entity}`}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {log.user?.prenom ? `${log.user.prenom} ${log.user.nom}` : log.user?.nom || "Système"}
-                        {" — "}
-                        {formatDate(log.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                <Link to="/activite" className="block text-center text-sm text-blue-600 hover:text-blue-800 mt-2">
-                  Voir tout l'historique
-                </Link>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Aujourd'hui</p>
+                <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(kpi?.achats.jour || 0)}</p>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune activité</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 3: Mouvements + Factures + Stock faible */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Derniers mouvements</CardTitle>
-            <CardDescription>Activité récente du stock</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentData?.mouvements && recentData.mouvements.length > 0 ? (
-                recentData.mouvements.slice(0, 5).map((mvt) => (
-                  <div key={mvt.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getMouvementIcon(mvt.type)}
-                      <div>
-                        <p className="text-sm font-medium">{mvt.piece?.nom || "Pièce"}</p>
-                        <p className="text-xs text-muted-foreground">{mvt.motif}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {getMouvementBadge(mvt.type)}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {mvt.quantite} unité{mvt.quantite > 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Aucun mouvement récent</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Dernières factures</CardTitle>
-            <CardDescription>Ventes récentes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentData?.factures && recentData.factures.length > 0 ? (
-                recentData.factures.map((facture) => (
-                  <div key={facture.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{facture.numero}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {facture.client?.nom || "Client"} - {formatDate(facture.dateFacture)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold">{formatCurrency(facture.total)}</p>
-                      <Badge variant={facture.statut === "PAYEE" ? "success" : facture.statut === "ANNULEE" ? "destructive" : "warning"}>
-                        {facture.statut === "PAYEE" ? "Payée" : facture.statut === "ANNULEE" ? "Annulée" : "En attente"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Aucune facture</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Stock faible</CardTitle>
-            <CardDescription>Pièces nécessitant un réapprovisionnement</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {lowStock.length > 0 ? (
-                lowStock.slice(0, 5).map((piece) => (
-                  <Link
-                    key={piece.id}
-                    to={`/pieces/${piece.id}`}
-                    className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded -mx-2"
-                  >
-                    <p className="text-sm">{piece.nom}</p>
-                    <Badge variant={piece.stock === 0 ? "destructive" : "warning"}>
-                      {piece.stock} / {piece.stockMin}
-                    </Badge>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Tous les stocks sont suffisants</p>
-              )}
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Cette semaine</p>
+                <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(kpi?.achats.semaine || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Ce mois</p>
+                <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(kpi?.achats.mois || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Cette année</p>
+                <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(kpi?.achats.annee || 0)}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Row 4: Pièces récentes */}
+      {/* Marge brute */}
+      {kpi && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-blue-600" />
+              Marge brute
+            </CardTitle>
+            <CardDescription>Ventes − Achats fournisseurs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {(["jour", "semaine", "mois", "annee"] as const).map((periode) => {
+                const marge = (kpi.ventes[periode] || 0) - (kpi.achats[periode] || 0);
+                const isPositive = marge >= 0;
+                return (
+                  <div key={periode} className={`rounded-lg p-4 ${isPositive ? "bg-blue-50 dark:bg-blue-950" : "bg-red-50 dark:bg-red-950"}`}>
+                    <p className="text-xs text-muted-foreground mb-1 capitalize">
+                      {periode === "jour" ? "Aujourd'hui" : periode === "semaine" ? "Cette semaine" : periode === "mois" ? "Ce mois" : "Cette année"}
+                    </p>
+                    <p className={`text-xl font-bold ${isPositive ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
+                      {isPositive ? "+" : ""}{formatCurrency(marge)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ventes mensuelles */}
       <Card>
         <CardHeader>
-          <CardTitle>Pièces récemment ajoutées</CardTitle>
-          <CardDescription>Les dernières pièces ajoutées au catalogue</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Ventes mensuelles
+          </CardTitle>
+          <CardDescription>Chiffre d'affaires des 12 derniers mois</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recentData?.pieces && recentData.pieces.length > 0 ? (
-              recentData.pieces.map((piece) => (
-                <Link
-                  key={piece.id}
-                  to={`/pieces/${piece.id}`}
-                  className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded -mx-2"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{piece.nom}</p>
-                    <p className="text-xs text-muted-foreground">{piece.reference}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{formatDate(piece.createdAt)}</p>
-                </Link>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Aucune pièce</p>
-            )}
-          </div>
+          {salesChartFormatted.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={salesChartFormatted}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
+                <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
+                <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value, name) => [formatCurrency(Number(value)), name === "ventes" ? "Ventes" : "Tendance"]}
+                  labelFormatter={(label) => `Mois: ${label}`}
+                  contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                />
+                <Bar dataKey="ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Line
+                  type="monotone"
+                  dataKey="ventes"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={{ fill: "#f59e0b", r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="tendance"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-muted-foreground">Aucune donnée de ventes</div>
+          )}
         </CardContent>
       </Card>
     </div>
