@@ -762,6 +762,16 @@ export const achatsApi = {
     totalCommande?: number;
     notes?: string;
   }) => api.post<Achat>("/achats", data),
+  update: (
+    id: string,
+    data: {
+      fournisseurId?: string;
+      numeroFacture?: string;
+      items?: { pieceId: string; quantite: number; prixUnitaire: number; tva?: number }[];
+      totalCommande?: number;
+      notes?: string;
+    },
+  ) => api.put<Achat>(`/achats/${id}`, data),
   updateStatus: (id: string, statut: string) => api.patch<Achat>(`/achats/${id}/statut`, { statut }),
   delete: (id: string) => api.delete(`/achats/${id}`),
 };

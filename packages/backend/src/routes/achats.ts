@@ -201,6 +201,113 @@ router.patch("/:id/statut", isVendeurOrAdmin, async (req: AuthRequest, res) => {
   }
 });
 
+// Update achat (details)
+router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const data = achatSchema.parse(req.body);
+
+    const existing = await prisma.achat.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!(await ensureBoutique(existing, req as AuthRequest, res, "Achat"))) return;
+
+    const items = data.items ?? [];
+    const itemsWithTotals = items.map((item) => {
+      const total = item.quantite * item.prixUnitaire;
+      return { ...item, total };
+    });
+
+    const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
+    const total = data.totalCommande ?? sousTotal;
+
+    const achat = await prisma.$transaction(async (tx) => {
+      // If items changed and achat is not annulled, reverse old stock movements and create new ones
+      const hasItemChanges =
+        JSON.stringify(existing!.items.map((i) => ({ pieceId: i.pieceId, quantite: i.quantite }))) !==
+        JSON.stringify(items.map((i) => ({ pieceId: i.pieceId, quantite: i.quantite })));
+
+      if (hasItemChanges && existing!.statut !== "ANNULEE" && existing!.items.length > 0) {
+        // Reverse old stock movements
+        for (const item of existing!.items) {
+          if (item.pieceId) {
+            await adjustStock({
+              tx,
+              pieceId: item.pieceId,
+              type: "SORTIE",
+              quantite: item.quantite,
+              motif: `Ajustement achat ${existing!.numero} (reversal)`,
+              reference: existing!.numero,
+              userId: req.user!.userId,
+            });
+          }
+        }
+
+        // Add new stock movements
+        for (const item of items) {
+          await adjustStock({
+            tx,
+            pieceId: item.pieceId,
+            type: "ENTREE",
+            quantite: item.quantite,
+            motif: `Ajustement achat ${existing!.numero} (nouveau)`,
+            reference: existing!.numero,
+            userId: req.user!.userId,
+          });
+        }
+      }
+
+      // Delete old items if they exist
+      if (existing!.items.length > 0) {
+        await tx.achatItem.deleteMany({ where: { achatId: id } });
+      }
+
+      // Update achat and create new items
+      const updated = await tx.achat.update({
+        where: { id },
+        data: {
+          fournisseurId: data.fournisseurId,
+          numeroFacture: data.numeroFacture,
+          sousTotal,
+          tva: 0,
+          total,
+          notes: data.notes,
+          ...(items.length > 0
+            ? {
+                items: {
+                  create: itemsWithTotals.map((item) => ({
+                    pieceId: item.pieceId,
+                    quantite: item.quantite,
+                    prixUnitaire: item.prixUnitaire,
+                    tva: 0,
+                    total: item.total,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: achatIncludes,
+      });
+
+      return updated;
+    });
+
+    await logActivity(
+      req.user!.userId,
+      "UPDATE",
+      "ACHAT",
+      achat.id,
+      `Modification de l'achat ${achat.numero} — ${Number(achat.total).toLocaleString("fr-FR")} Fmg`,
+    );
+
+    res.json(serializeAchat(achat));
+  } catch (error) {
+    handleRouteError(res, error, "la mise à jour");
+  }
+});
+
 // Delete achat (admin only)
 router.delete("/:id", isAdmin, async (req: AuthRequest, res) => {
   try {

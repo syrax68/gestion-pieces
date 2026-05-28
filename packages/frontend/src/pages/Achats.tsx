@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Autocomplete } from "@/components/ui/Autocomplete";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
-import { ShoppingCart, Plus, Trash2, Check, X, Loader2 } from "lucide-react";
-import { Achat, Piece, achatsApi, piecesApi } from "@/lib/api";
+import { ShoppingCart, Plus, Trash2, Check, X, Loader2, Edit, Trash } from "lucide-react";
+import { Achat, Piece, Fournisseur, achatsApi, piecesApi, fournisseursApi } from "@/lib/api";
 import { useToast } from "@/components/ui/Toaster";
 
 interface CartItem {
@@ -24,11 +24,14 @@ export default function Achats() {
   const { error: toastError } = useToast();
   const [achats, setAchats] = useState<Achat[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAchatId, setEditingAchatId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isTotalOrder, setIsTotalOrder] = useState(false);
   const [orderTotal, setOrderTotal] = useState(0);
   const [notes, setNotes] = useState("");
+  const [fournisseurId, setFournisseurId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +44,14 @@ export default function Achats() {
     try {
       setLoading(true);
       setError(null);
-      const [achatsData, piecesData] = await Promise.all([achatsApi.getAll(), piecesApi.getAll()]);
+      const [achatsData, piecesData, fournisseursData] = await Promise.all([
+        achatsApi.getAll(),
+        piecesApi.getAll(),
+        fournisseursApi.getAll(),
+      ]);
       setAchats(achatsData);
       setPieces(piecesData);
+      setFournisseurs(fournisseursData);
     } catch (err) {
       setError("Erreur lors du chargement des données");
       console.error(err);
@@ -113,7 +121,7 @@ export default function Achats() {
 
     try {
       setSaving(true);
-      await achatsApi.create({
+      const payload = {
         items: isTotalOrder
           ? []
           : cart.map((item) => ({
@@ -122,19 +130,74 @@ export default function Achats() {
               prixUnitaire: item.prixUnitaire,
             })),
         totalCommande: isTotalOrder ? orderTotal : undefined,
+        fournisseurId: fournisseurId || undefined,
         notes: notes || undefined,
-      });
+      };
+
+      if (editingAchatId) {
+        await achatsApi.update(editingAchatId, payload);
+      } else {
+        await achatsApi.create(payload);
+      }
+
       await loadData();
-      setCart([]);
-      setOrderTotal(0);
-      setNotes("");
-      setIsTotalOrder(false);
+      resetForm();
       setIsFormOpen(false);
     } catch (err) {
-      console.error("Erreur lors de la création de l'achat:", err);
-      toastError("Erreur lors de la création de l'achat");
+      console.error("Erreur lors de la sauvegarde de l'achat:", err);
+      toastError("Erreur lors de la sauvegarde de l'achat");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setCart([]);
+    setOrderTotal(0);
+    setNotes("");
+    setFournisseurId(undefined);
+    setIsTotalOrder(false);
+    setEditingAchatId(null);
+  };
+
+  const openEditForm = (achat: Achat) => {
+    setEditingAchatId(achat.id);
+    setFournisseurId(achat.fournisseurId);
+    setNotes(achat.notes || "");
+
+    if (achat.items.length > 0) {
+      setIsTotalOrder(false);
+      setCart(
+        achat.items.map((item) => ({
+          id: item.id,
+          pieceId: item.pieceId,
+          pieceName: item.piece?.nom || "",
+          pieceReference: item.piece?.reference || "",
+          quantite: item.quantite,
+          prixUnitaire: item.prixUnitaire,
+          total: item.total,
+        })),
+      );
+    } else {
+      setIsTotalOrder(true);
+      setOrderTotal(achat.total);
+      setCart([]);
+    }
+
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteAchat = async (id: string, numero: string) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer l'achat ${numero} ?`)) {
+      return;
+    }
+
+    try {
+      await achatsApi.delete(id);
+      await loadData();
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
+      toastError("Erreur lors de la suppression de l'achat");
     }
   };
 
@@ -177,7 +240,13 @@ export default function Achats() {
           <h1 className="text-3xl font-bold tracking-tight">Achats Directs</h1>
           <p className="text-muted-foreground">Gérez vos achats de pièces en local</p>
         </div>
-        <Button size="sm" onClick={() => setIsFormOpen(true)}>
+        <Button
+          size="sm"
+          onClick={() => {
+            resetForm();
+            setIsFormOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Nouvel Achat
         </Button>
@@ -203,9 +272,24 @@ export default function Achats() {
                     <p className="text-sm text-muted-foreground mt-1">{new Date(achat.dateAchat).toLocaleDateString("fr-FR")}</p>
                     {achat.fournisseur && <p className="text-sm text-muted-foreground">Fournisseur: {achat.fournisseur.nom}</p>}
                   </div>
-                  <div className="flex items-center gap-3">
-                    {getStatutBadge(achat.statut)}
-                    <p className="text-xl font-bold">{achat.total.toFixed(2)} Ar</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-3">
+                      {getStatutBadge(achat.statut)}
+                      <p className="text-xl font-bold">{achat.total.toFixed(2)} Ar</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => openEditForm(achat)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteAchat(achat.id, achat.numero)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -246,13 +330,33 @@ export default function Achats() {
       </div>
 
       {/* Dialog Nouvel Achat */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nouvel Achat Direct</DialogTitle>
+            <DialogTitle>{editingAchatId ? "Modifier l'achat" : "Nouvel Achat Direct"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
+            <div>
+              <Label>Fournisseur (optionnel)</Label>
+              <Autocomplete
+                value={fournisseurId || ""}
+                onChange={(value) => setFournisseurId(value || undefined)}
+                options={fournisseurs.map((f) => ({
+                  value: f.id,
+                  label: f.nom,
+                  subtitle: f.email || "",
+                }))}
+                placeholder="Sélectionner un fournisseur..."
+              />
+            </div>
+
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-medium">Articles</h3>
