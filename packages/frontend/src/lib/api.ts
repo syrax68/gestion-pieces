@@ -148,7 +148,6 @@ export interface Marque {
   _count?: { pieces: number };
 }
 
-
 export interface PieceFournisseur {
   id: string;
   pieceId: string;
@@ -511,8 +510,7 @@ export const authApi = {
   deleteUser: (id: string) => api.delete(`/auth/users/${id}`),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post<{ message: string }>("/auth/change-password", { currentPassword, newPassword }),
-  resetPassword: (userId: string, newPassword: string) =>
-    api.post<{ message: string }>(`/auth/reset-password/${userId}`, { newPassword }),
+  resetPassword: (userId: string, newPassword: string) => api.post<{ message: string }>(`/auth/reset-password/${userId}`, { newPassword }),
   uploadAvatar: async (userId: string, file: File): Promise<User> => {
     const token = getToken();
     const formData = new FormData();
@@ -584,8 +582,7 @@ export const piecesApi = {
     items: { nom: string; quantite: number; prix: number }[],
     devise: "ariary" | "fmg",
     fournisseurId?: string,
-  ): Promise<{ created: number; updated: number; errors: string[] }> =>
-    api.post("/pieces/bulk-update", { items, devise, fournisseurId }),
+  ): Promise<{ created: number; updated: number; errors: string[] }> => api.post("/pieces/bulk-update", { items, devise, fournisseurId }),
 };
 
 export const imagesApi = {
@@ -730,12 +727,10 @@ export const inventairesApi = {
     return api.get<Inventaire[]>(`/inventaires${query}`);
   },
   getById: (id: string) => api.get<Inventaire>(`/inventaires/${id}`),
-  create: (data: { notes?: string; pieceIds?: string[] }) =>
-    api.post<Inventaire>("/inventaires", data),
+  create: (data: { notes?: string; pieceIds?: string[] }) => api.post<Inventaire>("/inventaires", data),
   updateItem: (id: string, itemId: string, data: { stockPhysique: number; notes?: string }) =>
     api.put<InventaireItem>(`/inventaires/${id}/items/${itemId}`, data),
-  updateStatus: (id: string, statut: string) =>
-    api.patch<Inventaire>(`/inventaires/${id}/statut`, { statut }),
+  updateStatus: (id: string, statut: string) => api.patch<Inventaire>(`/inventaires/${id}/statut`, { statut }),
   delete: (id: string) => api.delete(`/inventaires/${id}`),
 };
 
@@ -748,8 +743,7 @@ export const ventesJournalieresApi = {
     const query = q.toString() ? `?${q}` : "";
     return api.get<VenteJournaliere[]>(`/ventes-journalieres${query}`);
   },
-  create: (data: { montant: number; date?: string; notes?: string }) =>
-    api.post<VenteJournaliere>("/ventes-journalieres", data),
+  create: (data: { montant: number; date?: string; notes?: string }) => api.post<VenteJournaliere>("/ventes-journalieres", data),
   update: (id: string, data: { montant: number; date?: string; notes?: string }) =>
     api.put<VenteJournaliere>(`/ventes-journalieres/${id}`, data),
   delete: (id: string) => api.delete(`/ventes-journalieres/${id}`),
@@ -764,7 +758,8 @@ export const achatsApi = {
   create: (data: {
     fournisseurId?: string;
     numeroFacture?: string;
-    items: { pieceId: string; quantite: number; prixUnitaire: number; tva?: number }[];
+    items?: { pieceId: string; quantite: number; prixUnitaire: number; tva?: number }[];
+    totalCommande?: number;
     notes?: string;
   }) => api.post<Achat>("/achats", data),
   updateStatus: (id: string, statut: string) => api.patch<Achat>(`/achats/${id}/statut`, { statut }),

@@ -26,6 +26,8 @@ export default function Achats() {
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isTotalOrder, setIsTotalOrder] = useState(false);
+  const [orderTotal, setOrderTotal] = useState(0);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,11 +97,16 @@ export default function Achats() {
   };
 
   const calculateTotal = () => {
-    return cart.reduce((acc, item) => acc + item.total, 0);
+    return isTotalOrder ? orderTotal : cart.reduce((acc, item) => acc + item.total, 0);
   };
 
   const handleSaveAchat = async () => {
-    if (cart.length === 0 || cart.some((item) => !item.pieceId)) {
+    if (isTotalOrder) {
+      if (orderTotal <= 0) {
+        toastError("Veuillez saisir un montant total valide");
+        return;
+      }
+    } else if (cart.length === 0 || cart.some((item) => !item.pieceId)) {
       toastError("Veuillez ajouter au moins une pièce valide");
       return;
     }
@@ -107,16 +114,21 @@ export default function Achats() {
     try {
       setSaving(true);
       await achatsApi.create({
-        items: cart.map((item) => ({
-          pieceId: item.pieceId,
-          quantite: item.quantite,
-          prixUnitaire: item.prixUnitaire,
-        })),
+        items: isTotalOrder
+          ? []
+          : cart.map((item) => ({
+              pieceId: item.pieceId,
+              quantite: item.quantite,
+              prixUnitaire: item.prixUnitaire,
+            })),
+        totalCommande: isTotalOrder ? orderTotal : undefined,
         notes: notes || undefined,
       });
       await loadData();
       setCart([]);
+      setOrderTotal(0);
       setNotes("");
+      setIsTotalOrder(false);
       setIsFormOpen(false);
     } catch (err) {
       console.error("Erreur lors de la création de l'achat:", err);
@@ -199,20 +211,26 @@ export default function Achats() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {achat.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-2 border rounded">
-                      <div>
-                        <p className="font-medium">{item.piece?.nom || "-"}</p>
-                        <p className="text-sm text-muted-foreground">Réf: {item.piece?.reference || "-"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          {item.quantite} × {item.prixUnitaire.toFixed(2)} Ar
-                        </p>
-                        <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Ar</p>
-                      </div>
+                  {achat.items.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-muted p-4 bg-muted/50">
+                      <p className="text-sm text-muted-foreground">Aucun détail de pièces disponible pour cette commande.</p>
                     </div>
-                  ))}
+                  ) : (
+                    achat.items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <p className="font-medium">{item.piece?.nom || "-"}</p>
+                          <p className="text-sm text-muted-foreground">Réf: {item.piece?.reference || "-"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {item.quantite} × {item.prixUnitaire.toFixed(2)} Ar
+                          </p>
+                          <p className="text-sm text-muted-foreground">{item.total.toFixed(2)} Ar</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
                 {achat.notes && (
                   <div className="mt-4 p-2 bg-muted rounded">
@@ -235,15 +253,53 @@ export default function Achats() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-medium">Articles</h3>
-              <Button size="sm" variant="outline" onClick={handleAddToCart}>
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter un article
-              </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-medium">Articles</h3>
+                <p className="text-sm text-muted-foreground">Ou enregistrez une commande 1688 avec un total global.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={isTotalOrder ? "secondary" : "outline"}
+                  onClick={() => {
+                    setIsTotalOrder(!isTotalOrder);
+                    setOrderTotal(0);
+                    if (!isTotalOrder) setCart([]);
+                  }}
+                >
+                  {isTotalOrder ? "Mode détail pièces" : "Commande 1688 (total global)"}
+                </Button>
+                {!isTotalOrder && (
+                  <Button size="sm" variant="outline" onClick={handleAddToCart}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter un article
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {cart.length === 0 ? (
+            {isTotalOrder ? (
+              <div className="space-y-3">
+                <div>
+                  <Label>Montant total de la commande</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={orderTotal}
+                    onChange={(e) => setOrderTotal(Number(e.target.value))}
+                    placeholder="Ex: 1250000"
+                  />
+                </div>
+                <div className="rounded-lg border border-dashed border-muted p-4 bg-muted/50">
+                  <p className="text-sm text-muted-foreground">
+                    Enregistrez un achat global sans détail des pièces. Utile pour les commandes 1688 lorsque les lignes ne sont pas encore
+                    connues.
+                  </p>
+                </div>
+              </div>
+            ) : cart.length === 0 ? (
               <div className="text-center py-8 border rounded-lg border-dashed">
                 <p className="text-muted-foreground">Aucun article ajouté</p>
               </div>
@@ -314,7 +370,7 @@ export default function Achats() {
               <X className="mr-2 h-4 w-4" />
               Annuler
             </Button>
-            <Button onClick={handleSaveAchat} disabled={cart.length === 0 || saving}>
+            <Button onClick={handleSaveAchat} disabled={(isTotalOrder ? orderTotal <= 0 : cart.length === 0) || saving}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

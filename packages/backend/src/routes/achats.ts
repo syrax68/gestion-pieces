@@ -17,15 +17,20 @@ const achatItemSchema = z.object({
   pieceId: z.string(),
   quantite: z.number().int().positive(),
   prixUnitaire: z.number().positive(),
-
 });
 
-const achatSchema = z.object({
-  fournisseurId: z.string().optional(),
-  numeroFacture: z.string().optional(),
-  items: z.array(achatItemSchema).min(1, "Au moins un article requis"),
-  notes: z.string().optional(),
-});
+const achatSchema = z
+  .object({
+    fournisseurId: z.string().optional(),
+    numeroFacture: z.string().optional(),
+    items: z.array(achatItemSchema).optional(),
+    totalCommande: z.number().positive().optional(),
+    notes: z.string().optional(),
+  })
+  .refine((data) => (data.items && data.items.length > 0) || data.totalCommande !== undefined, {
+    message: "Au moins un article ou un montant total est requis",
+    path: ["items", "totalCommande"],
+  });
 
 const achatIncludes = {
   fournisseur: true,
@@ -74,13 +79,14 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
     const data = achatSchema.parse(req.body);
     const numero = await generateNumero("achat", "ACH");
 
-    const itemsWithTotals = data.items.map((item) => {
+    const items = data.items ?? [];
+    const itemsWithTotals = items.map((item) => {
       const total = item.quantite * item.prixUnitaire;
       return { ...item, total };
     });
 
     const sousTotal = itemsWithTotals.reduce((sum, item) => sum + item.total, 0);
-    const total = sousTotal;
+    const total = data.totalCommande ?? sousTotal;
 
     const achat = await prisma.$transaction(async (tx) => {
       const newAchat = await tx.achat.create({
@@ -94,29 +100,35 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
           statut: "PAYEE",
           notes: data.notes,
           boutiqueId: req.boutiqueId!,
-          items: {
-            create: itemsWithTotals.map((item) => ({
-              pieceId: item.pieceId,
-              quantite: item.quantite,
-              prixUnitaire: item.prixUnitaire,
-              tva: 0,
-              total: item.total,
-            })),
-          },
+          ...(items.length > 0
+            ? {
+                items: {
+                  create: itemsWithTotals.map((item) => ({
+                    pieceId: item.pieceId,
+                    quantite: item.quantite,
+                    prixUnitaire: item.prixUnitaire,
+                    tva: 0,
+                    total: item.total,
+                  })),
+                },
+              }
+            : {}),
         },
         include: achatIncludes,
       });
 
-      for (const item of data.items) {
-        await adjustStock({
-          tx,
-          pieceId: item.pieceId,
-          type: "ENTREE",
-          quantite: item.quantite,
-          motif: `Achat ${numero}`,
-          reference: numero,
-          userId: req.user!.userId,
-        });
+      if (items.length > 0) {
+        for (const item of items) {
+          await adjustStock({
+            tx,
+            pieceId: item.pieceId,
+            type: "ENTREE",
+            quantite: item.quantite,
+            motif: `Achat ${numero}`,
+            reference: numero,
+            userId: req.user!.userId,
+          });
+        }
       }
 
       return newAchat;
