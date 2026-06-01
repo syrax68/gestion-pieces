@@ -802,11 +802,13 @@ export const dashboardApi = {
   getTopPieces: () => api.get<TopPieceData[]>("/dashboard/top-pieces"),
   getStockOverview: () => api.get<StockOverviewData[]>("/dashboard/stock-overview"),
   getActivitySummary: () => api.get<ActivityLog[]>("/dashboard/activity-summary"),
-  getKpi: () =>
-    api.get<{
-      ventes: { jour: number; semaine: number; mois: number; annee: number };
-      achats: { jour: number; semaine: number; mois: number; annee: number };
-    }>("/dashboard/kpi"),
+  getKpi: (params?: { dateDebut?: string; dateFin?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.dateDebut) q.set("dateDebut", params.dateDebut);
+    if (params?.dateFin) q.set("dateFin", params.dateFin);
+    const qs = q.toString();
+    return api.get<{ ventes: number; achats: number }>(`/dashboard/kpi${qs ? `?${qs}` : ""}`);
+  },
   getMultiBoutique: () => api.get<MultiBoutiqueData>("/dashboard/multi-boutique"),
 };
 

@@ -38,27 +38,19 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 
-type Periode = "jour" | "semaine" | "mois" | "annee";
-
-const PERIODES: { value: Periode; label: string }[] = [
-  { value: "jour", label: "Aujourd'hui" },
-  { value: "semaine", label: "Semaine" },
-  { value: "mois", label: "Mois" },
-  { value: "annee", label: "Année" },
-];
+const today = new Date().toISOString().slice(0, 10);
+const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
 export default function Dashboard() {
   const { canEdit } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesChart, setSalesChart] = useState<SalesChartData[]>([]);
-  const [kpi, setKpi] = useState<{
-    ventes: { jour: number; semaine: number; mois: number; annee: number };
-    achats: { jour: number; semaine: number; mois: number; annee: number };
-  } | null>(null);
+  const [kpi, setKpi] = useState<{ ventes: number; achats: number } | null>(null);
   const [ventesRecentes, setVentesRecentes] = useState<VenteJournaliere[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
-  const [periode, setPeriode] = useState<Periode>("mois");
+  const [dateDebut, setDateDebut] = useState(firstOfMonth);
+  const [dateFin, setDateFin] = useState(today);
 
   // Dialog saisie vente
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -66,18 +58,22 @@ export default function Dashboard() {
   const [form, setForm] = useState({ montant: "", date: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
+  const loadKpi = async (debut: string, fin: string) => {
+    const data = await dashboardApi.getKpi({ dateDebut: debut, dateFin: fin }).catch(() => null);
+    setKpi(data);
+  };
+
   const loadData = async () => {
     try {
-      const [statsData, sales, kpiData, ventes] = await Promise.all([
+      const [statsData, sales, ventes] = await Promise.all([
         dashboardApi.getStats(),
         dashboardApi.getSalesChart().catch(() => []),
-        dashboardApi.getKpi().catch(() => null),
         ventesJournalieresApi.getAll({ limit: 7 }).catch(() => []),
       ]);
       setStats(statsData);
       setSalesChart(sales);
-      setKpi(kpiData);
       setVentesRecentes(ventes);
+      await loadKpi(dateDebut, dateFin);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
@@ -86,6 +82,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (!isLoading) loadKpi(dateDebut, dateFin);
+  }, [dateDebut, dateFin]);
 
   if (isLoading) {
     return (
@@ -153,10 +153,10 @@ export default function Dashboard() {
     }
   };
 
-  const ventesMontant = kpi?.ventes[periode] ?? 0;
-  const achatsMontant = kpi?.achats[periode] ?? 0;
+  const ventesMontant = kpi?.ventes ?? 0;
+  const achatsMontant = kpi?.achats ?? 0;
   const marge = ventesMontant - achatsMontant;
-  const periodeLabel = PERIODES.find((p) => p.value === periode)?.label ?? "";
+  const periodeLabel = `${dateDebut} → ${dateFin}`;
 
   return (
     <div className="space-y-8">
@@ -222,18 +222,25 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Filtre période */}
-      <div className="flex gap-2">
-        {PERIODES.map((p) => (
-          <Button
-            key={p.value}
-            variant={periode === p.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPeriode(p.value)}
-          >
-            {p.label}
-          </Button>
-        ))}
+      {/* Filtre par période (range de dates) */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">Du</Label>
+          <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="w-40" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">Au</Label>
+          <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="w-40" />
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setDateDebut(today); setDateFin(today); }}>Aujourd'hui</Button>
+          <Button size="sm" variant="outline" onClick={() => { setDateDebut(firstOfMonth); setDateFin(today); }}>Ce mois</Button>
+          <Button size="sm" variant="outline" onClick={() => {
+            const d = new Date();
+            setDateDebut(new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10));
+            setDateFin(today);
+          }}>Cette année</Button>
+        </div>
       </div>
 
       {/* KPI Ventes + Achats + Marge */}
@@ -245,7 +252,7 @@ export default function Dashboard() {
                 <TrendingUp className="h-4 w-4 text-green-600" />
                 Ventes
               </CardTitle>
-              <CardDescription>{periodeLabel}</CardDescription>
+              <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
             </div>
             {canEdit && (
               <Button size="sm" variant="outline" onClick={openCreate}>
@@ -264,7 +271,7 @@ export default function Dashboard() {
               <ShoppingCart className="h-4 w-4 text-orange-600" />
               Achats fournisseurs
             </CardTitle>
-            <CardDescription>{periodeLabel}</CardDescription>
+            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-orange-700">{formatCurrency(achatsMontant)}</p>
@@ -277,7 +284,7 @@ export default function Dashboard() {
               <TrendingDown className="h-4 w-4 text-blue-600" />
               Marge brute
             </CardTitle>
-            <CardDescription>{periodeLabel}</CardDescription>
+            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className={`text-3xl font-bold ${marge >= 0 ? "text-blue-700" : "text-red-600"}`}>

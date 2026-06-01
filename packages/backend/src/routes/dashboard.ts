@@ -330,66 +330,45 @@ operationalRouter.get("/stock-overview", async (req, res) => {
   }
 });
 
-// KPI ventes + achats par période
+// KPI ventes + achats sur un range de dates
 operationalRouter.get("/kpi", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
     const now = new Date();
 
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
+    const dateDebut = req.query.dateDebut
+      ? new Date(req.query.dateDebut as string)
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+    dateDebut.setHours(0, 0, 0, 0);
 
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const dateFin = req.query.dateFin
+      ? new Date(req.query.dateFin as string)
+      : new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    dateFin.setHours(23, 59, 59, 999);
 
     const [ventesJournalieres, achats, mouvementsImport] = await Promise.all([
       prisma.venteJournaliere.findMany({
-        where: { boutiqueId, date: { gte: startOfYear } },
-        select: { montant: true, date: true },
+        where: { boutiqueId, date: { gte: dateDebut, lte: dateFin } },
+        select: { montant: true },
       }),
       prisma.achat.findMany({
-        where: { boutiqueId, dateAchat: { gte: startOfYear } },
-        select: { total: true, dateAchat: true },
+        where: { boutiqueId, dateAchat: { gte: dateDebut, lte: dateFin } },
+        select: { total: true },
       }),
       // Mouvements ENTREE créés par import Excel (pas par les achats fournisseurs)
       prisma.mouvementStock.findMany({
-        where: { boutiqueId, type: "ENTREE", motif: "Import Excel", date: { gte: startOfYear } },
+        where: { boutiqueId, type: "ENTREE", motif: "Import Excel", date: { gte: dateDebut, lte: dateFin } },
         include: { piece: { select: { prixAchat: true } } },
       }),
     ]);
 
-    const sumVentes = (from: Date) =>
-      Math.round(ventesJournalieres.filter((v) => v.date >= from).reduce((s, v) => s + Number(v.montant), 0));
+    const totalVentes = Math.round(ventesJournalieres.reduce((s, v) => s + Number(v.montant), 0));
+    const totalAchats = Math.round(
+      achats.reduce((s, a) => s + Number(a.total), 0) +
+      mouvementsImport.reduce((s, m) => s + m.quantite * Number(m.piece?.prixAchat ?? 0), 0)
+    );
 
-    const sumAchats = (from: Date) => {
-      const totalAchats = achats
-        .filter((a) => a.dateAchat >= from)
-        .reduce((s, a) => s + Number(a.total), 0);
-      const totalImports = mouvementsImport
-        .filter((m) => m.date >= from)
-        .reduce((s, m) => s + m.quantite * Number(m.piece?.prixAchat ?? 0), 0);
-      return Math.round(totalAchats + totalImports);
-    };
-
-    res.json({
-      ventes: {
-        jour: sumVentes(startOfDay),
-        semaine: sumVentes(startOfWeek),
-        mois: sumVentes(startOfMonth),
-        annee: sumVentes(startOfYear),
-      },
-      achats: {
-        jour: sumAchats(startOfDay),
-        semaine: sumAchats(startOfWeek),
-        mois: sumAchats(startOfMonth),
-        annee: sumAchats(startOfYear),
-      },
-    });
+    res.json({ ventes: totalVentes, achats: totalAchats });
   } catch (error) {
     handleRouteError(res, error, "la récupération des KPI");
   }
