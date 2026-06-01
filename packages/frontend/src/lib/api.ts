@@ -460,6 +460,7 @@ export interface ActivityLog {
 export interface SalesChartData {
   mois: string;
   ventes: number;
+  achats: number;
   count: number;
 }
 

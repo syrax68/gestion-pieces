@@ -225,15 +225,24 @@ operationalRouter.get("/sales-chart", async (req, res) => {
       const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
 
-      const factures = await prisma.facture.findMany({
-        where: { dateFacture: { gte: start, lte: end }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
-      });
+      const [factures, achats] = await Promise.all([
+        prisma.facture.findMany({
+          where: { dateFacture: { gte: start, lte: end }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
+          select: { total: true },
+        }),
+        prisma.achat.findMany({
+          where: { dateAchat: { gte: start, lte: end }, boutiqueId },
+          select: { total: true },
+        }),
+      ]);
 
       const ventes = factures.reduce((sum, f) => sum + Number(f.total), 0);
+      const totalAchats = achats.reduce((sum, a) => sum + Number(a.total), 0);
 
       months.push({
         mois: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
         ventes: Math.round(ventes),
+        achats: Math.round(totalAchats),
         count: factures.length,
       });
     }

@@ -322,39 +322,48 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Ventes mensuelles */}
+      {/* Ventes & Achats mensuels */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Ventes mensuelles
+            Ventes & Achats mensuels
           </CardTitle>
-          <CardDescription>Chiffre d'affaires des 12 derniers mois</CardDescription>
+          <CardDescription>Comparaison ventes / achats des 12 derniers mois</CardDescription>
         </CardHeader>
         <CardContent>
           {salesChartFormatted.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={salesChartFormatted}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value, name) => [formatCurrency(Number(value)), name === "ventes" ? "Ventes" : "Tendance"]}
-                  labelFormatter={(label) => `Mois: ${label}`}
-                  contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
-                />
-                <Bar dataKey="ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Line
-                  type="monotone"
-                  dataKey="ventes"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={{ fill: "#f59e0b", r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="tendance"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <>
+              <div className="flex items-center gap-6 mb-4 text-sm">
+                <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-blue-500" />Ventes</span>
+                <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-orange-400" />Achats</span>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={salesChartFormatted}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
+                  <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
+                  <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatCurrency(Number(value)),
+                      name === "ventes" ? "Ventes" : name === "achats" ? "Achats" : String(name),
+                    ]}
+                    labelFormatter={(label) => `Mois: ${label}`}
+                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                  />
+                  <Bar dataKey="ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} name="ventes" />
+                  <Bar dataKey="achats" fill="#fb923c" radius={[4, 4, 0, 0]} name="achats" />
+                  <Line
+                    type="monotone"
+                    dataKey="ventes"
+                    stroke="#1d4ed8"
+                    strokeWidth={2}
+                    dot={false}
+                    name="tendance ventes"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-muted-foreground">
               Aucune donnée de ventes
