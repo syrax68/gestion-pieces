@@ -351,7 +351,7 @@ operationalRouter.get("/kpi", async (req, res) => {
       ? dayjs.utc(req.query.dateFin as string).endOf("day").toDate()
       : dayjs.utc().endOf("month").toDate();
 
-    const [ventesJournalieres, achats, mouvementsEntree] = await Promise.all([
+    const [ventesJournalieres, achatsData, achatItems] = await Promise.all([
       prisma.venteJournaliere.findMany({
         where: { boutiqueId, date: { gte: dateDebut, lte: dateFin } },
         select: { montant: true },
@@ -360,33 +360,34 @@ operationalRouter.get("/kpi", async (req, res) => {
         where: { boutiqueId, dateAchat: { gte: dateDebut, lte: dateFin } },
         select: { total: true },
       }),
-      // Tous les mouvements ENTREE sur la période (achat direct + import)
-      prisma.mouvementStock.findMany({
-        where: { boutiqueId, type: "ENTREE", date: { gte: dateDebut, lte: dateFin } },
-        select: { quantite: true, date: true, motif: true, piece: { select: { prixAchat: true, prixVente: true } } },
+      // AchatItems = stock réellement reçu avec pièces détaillées (achats directs + imports)
+      // Exclut les achats annulés et les achats "total seulement" (sans items)
+      prisma.achatItem.findMany({
+        where: {
+          achat: {
+            boutiqueId,
+            dateAchat: { gte: dateDebut, lte: dateFin },
+            statut: { not: "ANNULEE" },
+          },
+        },
+        select: { total: true, quantite: true, prixUnitaire: true, achat: { select: { dateAchat: true } } },
       }),
     ]);
 
     const totalVentes = Math.round(ventesJournalieres.reduce((s, v) => s + Number(v.montant), 0));
-    const totalAchats = Math.round(achats.reduce((s, a) => s + Number(a.total), 0));
+    const totalAchats = Math.round(achatsData.reduce((s, a) => s + Number(a.total), 0));
 
-    // Valeur monétaire du stock entré : quantité × prixAchat de chaque pièce
-    const totalStockRecu = Math.round(
-      mouvementsEntree.reduce((s, m) => {
-        const prix = Number(m.piece?.prixAchat ?? m.piece?.prixVente ?? 0);
-        return s + m.quantite * prix;
-      }, 0)
-    );
+    // Stock reçu = somme des AchatItems (prix réels payés)
+    const totalStockRecu = Math.round(achatItems.reduce((s, i) => s + Number(i.total), 0));
 
-    // Détail par date pour le graphique
+    // Détail par date
     const stockParDate: Record<string, number> = {};
-    for (const m of mouvementsEntree) {
-      const jour = dayjs.utc(m.date).format("YYYY-MM-DD");
-      const prix = Number(m.piece?.prixAchat ?? m.piece?.prixVente ?? 0);
-      stockParDate[jour] = (stockParDate[jour] ?? 0) + m.quantite * prix;
+    for (const item of achatItems) {
+      const jour = dayjs.utc(item.achat.dateAchat).format("YYYY-MM-DD");
+      stockParDate[jour] = (stockParDate[jour] ?? 0) + Number(item.total);
     }
 
-    res.json({ ventes: totalVentes, achats: totalAchats, stockRecu: totalStockRecu, stockParDate });
+    res.json({ ventes: totalVentes, achats: totalAchats, stockRecu: Math.round(totalStockRecu), stockParDate });
   } catch (error) {
     handleRouteError(res, error, "la récupération des KPI");
   }

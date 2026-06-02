@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -16,7 +16,6 @@ import {
   Package,
   AlertCircle,
   DollarSign,
-  FileText,
   Loader2,
   TrendingUp,
   TrendingDown,
@@ -31,7 +30,6 @@ import {
 import {
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -43,11 +41,26 @@ import { useAuth } from "@/contexts/AuthContext";
 const today        = dayjs().format("YYYY-MM-DD");
 const firstOfMonth = dayjs().startOf("month").format("YYYY-MM-DD");
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("fr-FR").format(Math.round(value)) + " Ar";
+
+const formatCurrencyShort = (value: number) => {
+  if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + "M";
+  if (value >= 1_000) return (value / 1_000).toFixed(0) + "k";
+  return value.toString();
+};
+
+const MOIS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+const formatMonth = (mois: string) => MOIS_FR[dayjs(mois).month()];
+const formatDate  = (d: string) => dayjs(d).format("DD MMM YYYY");
+
 export default function Dashboard() {
   const { canEdit } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesChart, setSalesChart] = useState<SalesChartData[]>([]);
-  const [kpi, setKpi] = useState<{ ventes: number; achats: number; stockRecu: number; stockParDate: Record<string, number> } | null>(null);
+  const [kpi, setKpi] = useState<{
+    ventes: number; achats: number; stockRecu: number; stockParDate: Record<string, number>;
+  } | null>(null);
   const [ventesRecentes, setVentesRecentes] = useState<VenteJournaliere[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
@@ -55,9 +68,9 @@ export default function Dashboard() {
   const [dateFin, setDateFin] = useState(today);
 
   // Dialog saisie vente
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen]     = useState(false);
   const [editingVente, setEditingVente] = useState<VenteJournaliere | null>(null);
-  const [form, setForm] = useState({ montant: "", date: "", notes: "" });
+  const [form, setForm]   = useState({ montant: "", date: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
   const loadKpi = async (debut: string, fin: string) => {
@@ -84,56 +97,23 @@ export default function Dashboard() {
   };
 
   useEffect(() => { loadData(); }, []);
-
-  useEffect(() => {
-    if (!isLoading) loadKpi(dateDebut, dateFin);
-  }, [dateDebut, dateFin]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-600" />
-      </div>
-    );
-  }
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("fr-FR").format(value) + " Ar";
-
-  const formatCurrencyShort = (value: number) => {
-    if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + "M";
-    if (value >= 1_000) return (value / 1_000).toFixed(0) + "k";
-    return value.toString();
-  };
-
-  const MOIS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
-  const formatMonth = (mois: string) => MOIS_FR[dayjs(mois).month()];
-
-  const formatDate = (d: string) => dayjs(d).format("DD MMM YYYY");
-
-  const salesChartFormatted = salesChart.map((d) => ({
-    ...d,
-    moisLabel: formatMonth(d.mois),
-  }));
+  useEffect(() => { if (!isLoading) loadKpi(dateDebut, dateFin); }, [dateDebut, dateFin]);
 
   const openCreate = () => {
     setEditingVente(null);
     setForm({ montant: "", date: dayjs().format("YYYY-MM-DD"), notes: "" });
     setDialogOpen(true);
   };
-
   const openEdit = (v: VenteJournaliere) => {
     setEditingVente(v);
     setForm({ montant: String(v.montant), date: v.date.slice(0, 10), notes: v.notes || "" });
     setDialogOpen(true);
   };
-
   const handleDelete = async (id: string) => {
     if (!confirm("Supprimer cette vente ?")) return;
     await ventesJournalieresApi.delete(id);
     loadData();
   };
-
   const handleSave = async () => {
     const montant = parseFloat(form.montant);
     if (!montant || montant <= 0) return;
@@ -151,268 +131,234 @@ export default function Dashboard() {
     }
   };
 
-  const ventesMontant = kpi?.ventes ?? 0;
-  const achatsMontant   = kpi?.achats    ?? 0;
-  const stockRecuMontant = kpi?.stockRecu ?? 0;
-  const marge            = ventesMontant - achatsMontant;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
-  // Tableau stock reçu par date, trié du plus récent au plus ancien
+  const ventesMontant   = kpi?.ventes   ?? 0;
+  const achatsMontant   = kpi?.achats   ?? 0;
+  const stockRecuMontant = kpi?.stockRecu ?? 0;
+  const marge           = ventesMontant - achatsMontant;
+  const periodeLabel    = dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`;
+
   const stockParDateEntries = Object.entries(kpi?.stockParDate ?? {})
-    .map(([date, valeur]) => ({ date, valeur }))
+    .map(([date, valeur]) => ({ date, valeur: Math.round(valeur) }))
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const salesChartFormatted = salesChart.map((d) => ({ ...d, moisLabel: formatMonth(d.mois) }));
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
-        <p className="text-muted-foreground">Vue d'ensemble de votre stock de pièces moto</p>
+        <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+        <p className="text-sm text-muted-foreground">Vue d'ensemble de votre activité</p>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pièces</CardTitle>
+      {/* ── Ligne 1 : stats stock (toujours visibles) ── */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground font-medium">Références</span>
             <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalPieces || 0}</div>
-            <p className="text-xs text-muted-foreground">Références en catalogue</p>
-          </CardContent>
+          </div>
+          <p className="text-2xl font-bold">{stats?.totalPieces ?? 0}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">pièces actives</p>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valeur Stock</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold">
-                {showStockValue ? formatCurrency(stats?.stockValue || 0) : "••••••••"}
-              </div>
-              <button
-                onClick={() => setShowStockValue(!showStockValue)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showStockValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Valeur totale au prix d'achat</p>
-          </CardContent>
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground font-medium">Valeur stock</span>
+            <button onClick={() => setShowStockValue(!showStockValue)} className="text-muted-foreground hover:text-foreground">
+              {showStockValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-2xl font-bold">
+            {showStockValue ? formatCurrency(stats?.stockValue ?? 0) : "••••••"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">au prix d'achat</p>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stock Faible</CardTitle>
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground font-medium">Stock faible</span>
             <AlertCircle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{stats?.lowStockCount || 0}</div>
-            <p className="text-xs text-muted-foreground">dont {stats?.outOfStockCount || 0} en rupture</p>
-          </CardContent>
+          </div>
+          <p className="text-2xl font-bold text-orange-500">{stats?.lowStockCount ?? 0}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{stats?.outOfStockCount ?? 0} en rupture</p>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ventes du mois</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.monthlySales || 0)}</div>
-            <p className="text-xs text-muted-foreground">Aujourd'hui: {formatCurrency(stats?.todaySales || 0)}</p>
-          </CardContent>
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground font-medium">Ventes du mois</span>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </div>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(stats?.monthlySales ?? 0)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Aujourd'hui : {formatCurrency(stats?.todaySales ?? 0)}</p>
         </Card>
       </div>
 
-      {/* Filtre par période (range de dates) */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Du</Label>
-          <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="w-40" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Au</Label>
-          <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="w-40" />
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => { setDateDebut(today); setDateFin(today); }}>Aujourd'hui</Button>
-          <Button size="sm" variant="outline" onClick={() => { setDateDebut(firstOfMonth); setDateFin(today); }}>Ce mois</Button>
-          <Button size="sm" variant="outline" onClick={() => {
-            setDateDebut(dayjs().startOf("year").format("YYYY-MM-DD"));
-            setDateFin(today);
-          }}>Cette année</Button>
-        </div>
-      </div>
-
-      {/* KPI Ventes + Achats + Marge */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                Ventes
-              </CardTitle>
-              <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
+      {/* ── Analyse financière (filtre + KPIs + saisies) ── */}
+      <Card>
+        <CardHeader className="pb-3 border-b">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base">Analyse financière</CardTitle>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Du</Label>
+                <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="h-8 w-36 text-sm" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Au</Label>
+                <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="h-8 w-36 text-sm" />
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setDateDebut(today); setDateFin(today); }}>Aujourd'hui</Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setDateDebut(firstOfMonth); setDateFin(today); }}>Ce mois</Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setDateDebut(dayjs().startOf("year").format("YYYY-MM-DD")); setDateFin(today); }}>Cette année</Button>
+              </div>
             </div>
-            {canEdit && (
-              <Button size="sm" variant="outline" onClick={openCreate}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-700">{formatCurrency(ventesMontant)}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </CardHeader>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShoppingCart className="h-4 w-4 text-orange-600" />
-              Achats fournisseurs
-            </CardTitle>
-            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-orange-700">{formatCurrency(achatsMontant)}</p>
-          </CardContent>
-        </Card>
+        <CardContent className="pt-4 space-y-4">
+          {/* KPI grid 2×2 */}
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            {/* Ventes */}
+            <div className="rounded-lg border bg-green-50 dark:bg-green-950/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="text-xs font-medium">Ventes</span>
+                </div>
+                {canEdit && (
+                  <button onClick={openCreate} className="text-green-600 hover:text-green-800 transition-colors" title="Ajouter une vente">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(ventesMontant)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{periodeLabel}</p>
+            </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingDown className="h-4 w-4 text-blue-600" />
-              Marge brute
-            </CardTitle>
-            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-3xl font-bold ${marge >= 0 ? "text-blue-700" : "text-red-600"}`}>
-              {marge >= 0 ? "+" : ""}{formatCurrency(marge)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Achats */}
+            <div className="rounded-lg border bg-orange-50 dark:bg-orange-950/20 p-4">
+              <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400 mb-2">
+                <ShoppingCart className="h-4 w-4" />
+                <span className="text-xs font-medium">Achats fournisseurs</span>
+              </div>
+              <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(achatsMontant)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{periodeLabel}</p>
+            </div>
 
-      {/* KPI Stock reçu */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Archive className="h-4 w-4 text-purple-600" />
-              Stock reçu
-            </CardTitle>
-            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-purple-700">{formatCurrency(stockRecuMontant)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Valeur totale des entrées stock sur la période</p>
-          </CardContent>
-        </Card>
+            {/* Stock reçu */}
+            <div className="rounded-lg border bg-purple-50 dark:bg-purple-950/20 p-4">
+              <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 mb-2">
+                <Archive className="h-4 w-4" />
+                <span className="text-xs font-medium">Stock reçu</span>
+              </div>
+              <p className="text-xl font-bold text-purple-700 dark:text-purple-400">{formatCurrency(stockRecuMontant)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">valeur articles reçus</p>
+            </div>
 
-        {/* Détail par date */}
-        {stockParDateEntries.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Détail stock reçu par jour</CardTitle>
-              <CardDescription>{stockParDateEntries.length} jour(s) avec entrées</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                {stockParDateEntries.map(({ date, valeur }) => (
-                  <div key={date} className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            {/* Marge */}
+            <div className={`rounded-lg border p-4 ${marge >= 0 ? "bg-blue-50 dark:bg-blue-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
+              <div className={`flex items-center gap-1.5 mb-2 ${marge >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
+                <TrendingDown className="h-4 w-4" />
+                <span className="text-xs font-medium">Marge brute</span>
+              </div>
+              <p className={`text-xl font-bold ${marge >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
+                {marge >= 0 ? "+" : ""}{formatCurrency(marge)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{periodeLabel}</p>
+            </div>
+          </div>
+
+          {/* Stock reçu — détail par date (si données) */}
+          {stockParDateEntries.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Détail stock reçu par jour</p>
+              <div className="divide-y rounded-md border overflow-hidden">
+                {stockParDateEntries.slice(0, 6).map(({ date, valeur }) => (
+                  <div key={date} className="flex items-center justify-between px-3 py-2 bg-background hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <span className="text-sm text-muted-foreground">{formatDate(date)}</span>
                     <span className="text-sm font-medium text-purple-700">{formatCurrency(valeur)}</span>
                   </div>
                 ))}
+                {stockParDateEntries.length > 6 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground text-center bg-slate-50 dark:bg-slate-800/30">
+                    + {stockParDateEntries.length - 6} autre(s) jour(s)
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Ventes journalières récentes */}
-      {ventesRecentes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventes journalières récentes</CardTitle>
-            <CardDescription>7 dernières saisies</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {ventesRecentes.map((v) => (
-                <div key={v.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">
-                  <div>
-                    <p className="font-medium text-green-700">{formatCurrency(v.montant)}</p>
-                    {v.notes && <p className="text-xs text-muted-foreground">{v.notes}</p>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm text-muted-foreground">{formatDate(v.date)}</p>
-                    {canEdit && (
-                      <div className="flex gap-1">
-                        <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-blue-600 transition-colors">
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleDelete(v.id)} className="text-muted-foreground hover:text-red-600 transition-colors">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
 
-      {/* Ventes & Achats mensuels */}
+          {/* Ventes journalières récentes */}
+          {ventesRecentes.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Dernières ventes saisies</p>
+              <div className="divide-y rounded-md border overflow-hidden">
+                {ventesRecentes.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between px-3 py-2 bg-background hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-green-700">{formatCurrency(v.montant)}</span>
+                      {v.notes && <span className="text-xs text-muted-foreground hidden sm:inline">{v.notes}</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">{formatDate(v.date)}</span>
+                      {canEdit && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-blue-600">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(v.id)} className="text-muted-foreground hover:text-red-600">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Graphique 12 mois ── */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Ventes & Achats mensuels
-          </CardTitle>
-          <CardDescription>Comparaison ventes / achats des 12 derniers mois</CardDescription>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Ventes & Achats — 12 derniers mois</CardTitle>
         </CardHeader>
         <CardContent>
-          {salesChartFormatted.length > 0 ? (
+          {salesChartFormatted.some((d) => d.ventes > 0 || d.achats > 0) ? (
             <>
-              <div className="flex items-center gap-6 mb-4 text-sm">
-                <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-blue-500" />Ventes</span>
-                <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-orange-400" />Achats</span>
+              <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500" />Ventes</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-orange-400" />Achats</span>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={salesChartFormatted}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                  <XAxis dataKey="moisLabel" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => formatCurrencyShort(v)} tick={{ fontSize: 12 }} />
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={salesChartFormatted} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="moisLabel" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={formatCurrencyShort} tick={{ fontSize: 11 }} width={48} />
                   <Tooltip
-                    formatter={(value, name) => [
-                      formatCurrency(Number(value)),
-                      name === "ventes" ? "Ventes" : name === "achats" ? "Achats" : String(name),
-                    ]}
-                    labelFormatter={(label) => `Mois: ${label}`}
-                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                    formatter={(value, name) => [formatCurrency(Number(value)), name === "ventes" ? "Ventes" : "Achats"]}
+                    labelFormatter={(label) => `Mois : ${label}`}
+                    contentStyle={{ borderRadius: "6px", border: "1px solid #e2e8f0", fontSize: "13px" }}
                   />
-                  <Bar dataKey="ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} name="ventes" />
-                  <Bar dataKey="achats" fill="#fb923c" radius={[4, 4, 0, 0]} name="achats" />
-                  <Line
-                    type="monotone"
-                    dataKey="ventes"
-                    stroke="#1d4ed8"
-                    strokeWidth={2}
-                    dot={false}
-                    name="tendance ventes"
-                  />
+                  <Bar dataKey="ventes" fill="#3b82f6" radius={[3, 3, 0, 0]} name="ventes" maxBarSize={32} />
+                  <Bar dataKey="achats" fill="#fb923c" radius={[3, 3, 0, 0]} name="achats" maxBarSize={32} />
                 </ComposedChart>
               </ResponsiveContainer>
             </>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              Aucune donnée de ventes
+            <div className="flex items-center justify-center h-[260px] text-sm text-muted-foreground">
+              Aucune donnée sur les 12 derniers mois
             </div>
           )}
         </CardContent>
@@ -422,7 +368,7 @@ export default function Dashboard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingVente ? "Modifier la vente" : "Saisir une vente journalière"}</DialogTitle>
+            <DialogTitle>{editingVente ? "Modifier la vente" : "Saisir une vente"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -437,11 +383,7 @@ export default function Dashboard() {
             </div>
             <div>
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
             </div>
             <div>
               <Label>Notes (optionnel)</Label>
