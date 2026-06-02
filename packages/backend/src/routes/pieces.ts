@@ -12,6 +12,7 @@ import { handleRouteError } from "../utils/handleError.js";
 import { ensureBoutique } from "../utils/ensureBoutique.js";
 import { adjustStock } from "../services/stockService.js";
 import { exportToXlsx } from "../utils/xlsx.js";
+import { generateNumero } from "../utils/generateNumero.js";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -323,6 +324,9 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
     const boutiqueId = req.boutiqueId!;
     const results = { created: 0, updated: 0, errors: [] as string[] };
 
+    // Collecter les pieceId + montants pour créer l'Achat après
+    const achatItems: { pieceId: string; quantite: number; prixUnitaire: number; total: number }[] = [];
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       try {
@@ -332,6 +336,7 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
           where: { nom: { equals: item.nom.trim(), mode: "insensitive" }, boutiqueId },
         });
 
+        let pieceId: string;
         if (existing) {
           await prisma.piece.update({
             where: { id: existing.id },
@@ -341,10 +346,11 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
               ...(fournisseurId ? { fournisseurId } : {}),
             },
           });
+          pieceId = existing.id;
           results.updated++;
         } else {
           const reference = `IMPORT-${Date.now()}-${i}`;
-          await prisma.piece.create({
+          const created = await prisma.piece.create({
             data: {
               reference,
               nom: item.nom.trim(),
@@ -356,11 +362,36 @@ router.post("/bulk-update", isVendeurOrAdmin, async (req: AuthRequest, res: Resp
               ...(fournisseurId ? { fournisseurId } : {}),
             },
           });
+          pieceId = created.id;
           results.created++;
+        }
+
+        if (item.quantite > 0 && prixFinal > 0) {
+          achatItems.push({ pieceId, quantite: item.quantite, prixUnitaire: prixFinal, total: prixFinal * item.quantite });
         }
       } catch (err) {
         results.errors.push(`${item.nom}: ${err instanceof Error ? err.message : "Erreur"}`);
       }
+    }
+
+    // Créer un Achat pour tracer cet import dans l'historique financier
+    if (achatItems.length > 0) {
+      const sousTotal = achatItems.reduce((s, it) => s + it.total, 0);
+      const numero = await generateNumero("achat", "ACH");
+      await prisma.achat.create({
+        data: {
+          numero,
+          dateAchat: new Date(),
+          sousTotal,
+          tva: 0,
+          total: sousTotal,
+          statut: "PAYEE",
+          notes: `Import facture image : ${results.created} créée(s), ${results.updated} mise(s) à jour`,
+          boutiqueId,
+          ...(fournisseurId ? { fournisseurId } : {}),
+          items: { create: achatItems },
+        },
+      });
     }
 
     await logActivity(
