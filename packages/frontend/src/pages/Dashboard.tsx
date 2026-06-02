@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import dayjs from "dayjs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -38,8 +39,8 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 
-const today = new Date().toISOString().slice(0, 10);
-const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+const today        = dayjs().format("YYYY-MM-DD");
+const firstOfMonth = dayjs().startOf("month").format("YYYY-MM-DD");
 
 export default function Dashboard() {
   const { canEdit } = useAuth();
@@ -104,14 +105,10 @@ export default function Dashboard() {
     return value.toString();
   };
 
-  const formatMonth = (mois: string) => {
-    const [, month] = mois.split("-");
-    const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
-    return months[parseInt(month) - 1];
-  };
+  const MOIS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+  const formatMonth = (mois: string) => MOIS_FR[dayjs(mois).month()];
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  const formatDate = (d: string) => dayjs(d).format("DD MMM YYYY");
 
   const salesChartFormatted = salesChart.map((d) => ({
     ...d,
@@ -120,7 +117,7 @@ export default function Dashboard() {
 
   const openCreate = () => {
     setEditingVente(null);
-    setForm({ montant: "", date: new Date().toISOString().slice(0, 10), notes: "" });
+    setForm({ montant: "", date: dayjs().format("YYYY-MM-DD"), notes: "" });
     setDialogOpen(true);
   };
 
@@ -236,8 +233,7 @@ export default function Dashboard() {
           <Button size="sm" variant="outline" onClick={() => { setDateDebut(today); setDateFin(today); }}>Aujourd'hui</Button>
           <Button size="sm" variant="outline" onClick={() => { setDateDebut(firstOfMonth); setDateFin(today); }}>Ce mois</Button>
           <Button size="sm" variant="outline" onClick={() => {
-            const d = new Date();
-            setDateDebut(new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10));
+            setDateDebut(dayjs().startOf("year").format("YYYY-MM-DD"));
             setDateFin(today);
           }}>Cette année</Button>
         </div>

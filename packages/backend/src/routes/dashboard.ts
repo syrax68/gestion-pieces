@@ -1,9 +1,13 @@
 import { Router } from "express";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
 import { prisma } from "../index.js";
 import { authenticate, AuthRequest, requireNonSuperAdmin } from "../middleware/auth.js";
 import { injectBoutique } from "../middleware/tenant.js";
 import { serializePiece, serializeFacture } from "../utils/decimal.js";
 import { handleRouteError } from "../utils/handleError.js";
+
+dayjs.extend(utc);
 
 const router = Router();
 
@@ -20,12 +24,9 @@ router.get("/multi-boutique", authenticate, async (req, res) => {
       select: { id: true, nom: true, ville: true },
     });
 
-    const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const firstDayOfMonth = new Date();
-    firstDayOfMonth.setDate(1);
-    firstDayOfMonth.setHours(0, 0, 0, 0);
+    const todayStart      = dayjs.utc().startOf("day").toDate();
+    const firstDayOfMonth = dayjs.utc().startOf("month").toDate();
+    const now             = dayjs.utc();
 
     const statutsValides = ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] as const;
 
@@ -37,7 +38,7 @@ router.get("/multi-boutique", authenticate, async (req, res) => {
         const [totalPieces, todayFactures, monthFactures, allPieces] = await Promise.all([
           prisma.piece.count({ where: { actif: true, boutiqueId: bId } }),
           prisma.facture.findMany({
-            where: { dateFacture: { gte: today }, statut: { in: [...statutsValides] }, boutiqueId: bId },
+            where: { dateFacture: { gte: todayStart }, statut: { in: [...statutsValides] }, boutiqueId: bId },
           }),
           prisma.facture.findMany({
             where: { dateFacture: { gte: firstDayOfMonth }, statut: { in: [...statutsValides] }, boutiqueId: bId },
@@ -53,18 +54,19 @@ router.get("/multi-boutique", authenticate, async (req, res) => {
         const stockValue = allPieces.reduce((sum, p) => sum + p.stock * Number(p.prixAchat || p.prixVente), 0);
         const facturesCount = monthFactures.length;
 
-        // Ventes 12 derniers mois
+        // Ventes 12 derniers mois (multi-boutique, source = factures)
         const salesChart = [];
         for (let i = 11; i >= 0; i--) {
-          const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+          const start   = now.subtract(i, "month").startOf("month").toDate();
+          const end     = now.subtract(i, "month").endOf("month").toDate();
+          const monthKey = now.subtract(i, "month").format("YYYY-MM");
 
           const factures = await prisma.facture.findMany({
             where: { dateFacture: { gte: start, lte: end }, statut: { in: [...statutsValides] }, boutiqueId: bId },
           });
 
           salesChart.push({
-            mois: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+            mois: monthKey,
             ventes: Math.round(factures.reduce((sum, f) => sum + Number(f.total), 0)),
             count: factures.length,
           });
@@ -118,19 +120,15 @@ operationalRouter.get("/stats", async (req, res) => {
     const outOfStockCount = allPieces.filter((p) => p.stock === 0).length;
     const stockValue = allPieces.reduce((sum, p) => sum + p.stock * Number(p.prixAchat || p.prixVente), 0);
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgo = dayjs.utc().subtract(30, "day").toDate();
     const recentMouvements = await prisma.mouvementStock.count({ where: { date: { gte: thirtyDaysAgo }, boutiqueId } });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const firstDayOfMonth = new Date();
-    firstDayOfMonth.setDate(1);
-    firstDayOfMonth.setHours(0, 0, 0, 0);
+    const todayStart = dayjs.utc().startOf("day").toDate();
+    const firstDayOfMonth = dayjs.utc().startOf("month").toDate();
 
     const [todayVentes, monthVentes] = await Promise.all([
       prisma.venteJournaliere.findMany({
-        where: { boutiqueId, date: { gte: today } },
+        where: { boutiqueId, date: { gte: todayStart } },
         select: { montant: true },
       }),
       prisma.venteJournaliere.findMany({
@@ -218,32 +216,41 @@ operationalRouter.get("/low-stock", async (req, res) => {
 operationalRouter.get("/sales-chart", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
+    const now = dayjs.utc();
+
+    // Borne globale : 1er jour du mois il y a 11 mois → fin du mois courant
+    const globalStart = now.subtract(11, "month").startOf("month").toDate();
+    const globalEnd   = now.endOf("month").toDate();
+
+    // 2 requêtes globales au lieu de 24 (une par mois)
+    const [allVentes, allAchats] = await Promise.all([
+      prisma.venteJournaliere.findMany({
+        where: { boutiqueId, date: { gte: globalStart, lte: globalEnd } },
+        select: { date: true, montant: true },
+      }),
+      prisma.achat.findMany({
+        where: { boutiqueId, dateAchat: { gte: globalStart, lte: globalEnd } },
+        select: { dateAchat: true, total: true },
+      }),
+    ]);
+
+    // Regrouper par mois côté Node.js
     const months = [];
-    const now = new Date();
-
     for (let i = 11; i >= 0; i--) {
-      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const monthKey = now.subtract(i, "month").format("YYYY-MM");
 
-      const [factures, achats] = await Promise.all([
-        prisma.facture.findMany({
-          where: { dateFacture: { gte: start, lte: end }, statut: { in: ["PAYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYEE"] }, boutiqueId },
-          select: { total: true },
-        }),
-        prisma.achat.findMany({
-          where: { dateAchat: { gte: start, lte: end }, boutiqueId },
-          select: { total: true },
-        }),
-      ]);
+      const ventes = allVentes
+        .filter((v) => dayjs.utc(v.date).format("YYYY-MM") === monthKey)
+        .reduce((sum, v) => sum + Number(v.montant), 0);
 
-      const ventes = factures.reduce((sum, f) => sum + Number(f.total), 0);
-      const totalAchats = achats.reduce((sum, a) => sum + Number(a.total), 0);
+      const achats = allAchats
+        .filter((a) => dayjs.utc(a.dateAchat).format("YYYY-MM") === monthKey)
+        .reduce((sum, a) => sum + Number(a.total), 0);
 
       months.push({
-        mois: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+        mois: monthKey,
         ventes: Math.round(ventes),
-        achats: Math.round(totalAchats),
-        count: factures.length,
+        achats: Math.round(achats),
       });
     }
 
@@ -337,14 +344,12 @@ operationalRouter.get("/kpi", async (req, res) => {
     const now = new Date();
 
     const dateDebut = req.query.dateDebut
-      ? new Date(req.query.dateDebut as string)
-      : new Date(now.getFullYear(), now.getMonth(), 1);
-    dateDebut.setHours(0, 0, 0, 0);
+      ? dayjs.utc(req.query.dateDebut as string).startOf("day").toDate()
+      : dayjs.utc().startOf("month").toDate();
 
     const dateFin = req.query.dateFin
-      ? new Date(req.query.dateFin as string)
-      : new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    dateFin.setHours(23, 59, 59, 999);
+      ? dayjs.utc(req.query.dateFin as string).endOf("day").toDate()
+      : dayjs.utc().endOf("month").toDate();
 
     const [ventesJournalieres, achats, mouvementsImport] = await Promise.all([
       prisma.venteJournaliere.findMany({

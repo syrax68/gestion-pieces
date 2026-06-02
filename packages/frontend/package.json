@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
+    "dayjs": "^1.11.13",
     "clsx": "^2.1.0",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.314.0",

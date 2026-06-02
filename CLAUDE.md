@@ -7,10 +7,18 @@
 
 ## Stack technique
 - **Monorepo pnpm** avec `packages/backend` et `packages/frontend`
-- **Backend**: Express.js + TypeScript, Prisma ORM, PostgreSQL 16 (Docker), JWT auth, Zod validation
-- **Frontend**: React 18 + TypeScript, Vite, Tailwind CSS + shadcn/ui, Recharts, React Router
+- **Backend**: Express.js + TypeScript, Prisma ORM, PostgreSQL 16 (Docker), JWT auth, Zod validation, **dayjs** (dates UTC)
+- **Frontend**: React 18 + TypeScript, Vite, Tailwind CSS + shadcn/ui, Recharts, React Router, **dayjs** (formatage dates)
 - **Base de données**: PostgreSQL 16 Alpine via `docker-compose.yml` + pgAdmin
 - **Port backend**: 3001 | **Port frontend**: 5173
+
+## Règles métier importantes
+
+> **Pas de TVA** : le site ne gère pas la TVA. Les champs `tva` présents dans le schéma Prisma valent toujours 0. Ne jamais ajouter de calcul TVA dans les routes ou l'interface.
+
+> **Dates** : toujours utiliser `dayjs.utc()` côté backend pour les bornes de requêtes Prisma. Côté frontend, `dayjs()` suffit pour le formatage. Ne jamais utiliser `new Date()` avec des opérations sur les mois/années (décalage fuseau horaire).
+
+> **Source ventes** : les ventes sont trackées via `VentesJournaliere` (saisie manuelle). Les `Facture` existent dans le schéma mais ne sont pas utilisées comme source principale de CA. Ne pas mélanger les deux dans les calculs.
 
 ## Structure des fichiers
 
