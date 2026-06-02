@@ -26,6 +26,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Archive,
 } from "lucide-react";
 import {
   ComposedChart,
@@ -46,7 +47,7 @@ export default function Dashboard() {
   const { canEdit } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesChart, setSalesChart] = useState<SalesChartData[]>([]);
-  const [kpi, setKpi] = useState<{ ventes: number; achats: number } | null>(null);
+  const [kpi, setKpi] = useState<{ ventes: number; achats: number; stockRecu: number; stockParDate: Record<string, number> } | null>(null);
   const [ventesRecentes, setVentesRecentes] = useState<VenteJournaliere[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
@@ -151,9 +152,14 @@ export default function Dashboard() {
   };
 
   const ventesMontant = kpi?.ventes ?? 0;
-  const achatsMontant = kpi?.achats ?? 0;
-  const marge = ventesMontant - achatsMontant;
-  const periodeLabel = `${dateDebut} → ${dateFin}`;
+  const achatsMontant   = kpi?.achats    ?? 0;
+  const stockRecuMontant = kpi?.stockRecu ?? 0;
+  const marge            = ventesMontant - achatsMontant;
+
+  // Tableau stock reçu par date, trié du plus récent au plus ancien
+  const stockParDateEntries = Object.entries(kpi?.stockParDate ?? {})
+    .map(([date, valeur]) => ({ date, valeur }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="space-y-8">
@@ -288,6 +294,43 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* KPI Stock reçu */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Archive className="h-4 w-4 text-purple-600" />
+              Stock reçu
+            </CardTitle>
+            <CardDescription>{dateDebut === dateFin ? dateDebut : `${dateDebut} → ${dateFin}`}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-purple-700">{formatCurrency(stockRecuMontant)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Valeur totale des entrées stock sur la période</p>
+          </CardContent>
+        </Card>
+
+        {/* Détail par date */}
+        {stockParDateEntries.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Détail stock reçu par jour</CardTitle>
+              <CardDescription>{stockParDateEntries.length} jour(s) avec entrées</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                {stockParDateEntries.map(({ date, valeur }) => (
+                  <div key={date} className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <span className="text-sm text-muted-foreground">{formatDate(date)}</span>
+                    <span className="text-sm font-medium text-purple-700">{formatCurrency(valeur)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Ventes journalières récentes */}

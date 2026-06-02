@@ -807,7 +807,7 @@ export const dashboardApi = {
     if (params?.dateDebut) q.set("dateDebut", params.dateDebut);
     if (params?.dateFin) q.set("dateFin", params.dateFin);
     const qs = q.toString();
-    return api.get<{ ventes: number; achats: number }>(`/dashboard/kpi${qs ? `?${qs}` : ""}`);
+    return api.get<{ ventes: number; achats: number; stockRecu: number; stockParDate: Record<string, number> }>(`/dashboard/kpi${qs ? `?${qs}` : ""}`);
   },
   getMultiBoutique: () => api.get<MultiBoutiqueData>("/dashboard/multi-boutique"),
 };
