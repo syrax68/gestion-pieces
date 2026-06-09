@@ -26,6 +26,7 @@ import {
   Pencil,
   Trash2,
   Archive,
+  Percent,
 } from "lucide-react";
 import {
   ComposedChart,
@@ -154,12 +155,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+        <h1 className="font-display text-2xl font-black tracking-tight">Tableau de bord</h1>
         <p className="text-sm text-muted-foreground">Vue d'ensemble de votre activité</p>
       </div>
 
       {/* ── Ligne 1 : stats stock (toujours visibles) ── */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground font-medium">Références</span>
@@ -180,6 +181,21 @@ export default function Dashboard() {
             {showStockValue ? formatCurrency(stats?.stockValue ?? 0) : "••••••"}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">au prix d'achat</p>
+        </Card>
+
+        <Card className="p-4 ring-1 ring-primary/20">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground font-medium">Marge moyenne</span>
+            <Percent className="h-4 w-4 text-primary" />
+          </div>
+          <p className="text-2xl font-bold text-primary">
+            {stats?.margePct != null ? `${stats.margePct.toFixed(1).replace(".", ",")} %` : "—"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {stats?.margePct != null
+              ? `catalogue · ${stats.margePiecesCount} pièce${(stats.margePiecesCount ?? 0) > 1 ? "s" : ""} avec coût`
+              : "renseignez le prix d'achat"}
+          </p>
         </Card>
 
         <Card className="p-4">
@@ -265,12 +281,12 @@ export default function Dashboard() {
             </div>
 
             {/* Marge */}
-            <div className={`rounded-lg border p-4 ${marge >= 0 ? "bg-blue-50 dark:bg-blue-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
-              <div className={`flex items-center gap-1.5 mb-2 ${marge >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
+            <div className={`rounded-lg border p-4 ${marge >= 0 ? "bg-orange-50 dark:bg-orange-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
+              <div className={`flex items-center gap-1.5 mb-2 ${marge >= 0 ? "text-orange-700 dark:text-orange-400" : "text-red-700 dark:text-red-400"}`}>
                 <TrendingDown className="h-4 w-4" />
                 <span className="text-xs font-medium">Marge brute</span>
               </div>
-              <p className={`text-xl font-bold ${marge >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400"}`}>
+              <p className={`text-xl font-bold ${marge >= 0 ? "text-orange-700 dark:text-orange-400" : "text-red-700 dark:text-red-400"}`}>
                 {marge >= 0 ? "+" : ""}{formatCurrency(marge)}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">{periodeLabel}</p>
@@ -312,7 +328,7 @@ export default function Dashboard() {
                       <span className="text-sm text-muted-foreground">{formatDate(v.date)}</span>
                       {canEdit && (
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-blue-600">
+                          <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-orange-600">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button onClick={() => handleDelete(v.id)} className="text-muted-foreground hover:text-red-600">
@@ -338,7 +354,7 @@ export default function Dashboard() {
           {salesChartFormatted.some((d) => d.ventes > 0 || d.achats > 0) ? (
             <>
               <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500" />Ventes</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-orange-500" />Ventes</span>
                 <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-orange-400" />Achats</span>
               </div>
               <ResponsiveContainer width="100%" height={260}>

@@ -192,7 +192,7 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-orange-400 hover:bg-orange-50 transition-colors"
             >
               {preview ? (
                 <div className="space-y-3">
@@ -311,7 +311,7 @@ export function ImportFactureDialog({ open, onOpenChange, onSuccess }: Props) {
                       type="button"
                       onMouseDown={handleCreateFournisseur}
                       disabled={creatingFournisseur}
-                      className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
                     >
                       {creatingFournisseur ? (
                         <Loader2 className="h-3 w-3 animate-spin" />

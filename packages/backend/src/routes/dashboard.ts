@@ -120,6 +120,16 @@ operationalRouter.get("/stats", async (req, res) => {
     const outOfStockCount = allPieces.filter((p) => p.stock === 0).length;
     const stockValue = allPieces.reduce((sum, p) => sum + p.stock * Number(p.prixAchat || p.prixVente), 0);
 
+    // ── Taux de marge produit du catalogue ──────────────────────────────────
+    // Basé sur prixVente vs prixAchat (uniquement les pièces avec un prix
+    // d'achat renseigné), pondéré par le prix de vente. Indépendant des ventes.
+    const piecesAvecCout = allPieces.filter(
+      (p) => p.prixAchat != null && Number(p.prixAchat) > 0 && Number(p.prixVente) > 0,
+    );
+    const baseVente = piecesAvecCout.reduce((sum, p) => sum + Number(p.prixVente), 0);
+    const baseAchat = piecesAvecCout.reduce((sum, p) => sum + Number(p.prixAchat), 0);
+    const margePct = baseVente > 0 ? ((baseVente - baseAchat) / baseVente) * 100 : null;
+
     const thirtyDaysAgo = dayjs.utc().subtract(30, "day").toDate();
     const recentMouvements = await prisma.mouvementStock.count({ where: { date: { gte: thirtyDaysAgo }, boutiqueId } });
 
@@ -145,6 +155,8 @@ operationalRouter.get("/stats", async (req, res) => {
       lowStockCount,
       outOfStockCount,
       stockValue: Math.round(stockValue * 100) / 100,
+      margePct: margePct === null ? null : Math.round(margePct * 10) / 10,
+      margePiecesCount: piecesAvecCout.length,
       recentMouvements,
       todaySales: Math.round(todaySales * 100) / 100,
       monthlySales: Math.round(monthlySales * 100) / 100,

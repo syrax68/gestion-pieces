@@ -63,13 +63,13 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   const icon = {
     success: <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />,
     error: <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />,
-    info: <Info className="h-5 w-5 text-blue-500 shrink-0" />,
+    info: <Info className="h-5 w-5 text-orange-500 shrink-0" />,
   }[toast.type];
 
   const bg = {
     success: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800",
     error: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800",
-    info: "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800",
+    info: "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800",
   }[toast.type];
 
   return (

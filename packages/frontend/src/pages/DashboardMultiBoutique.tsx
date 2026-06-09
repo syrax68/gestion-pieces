@@ -116,7 +116,7 @@ export default function DashboardMultiBoutique() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ventes du jour</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-500" />
+            <DollarSign className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{maskedValue(data.totals.todaySales)}</div>
@@ -239,9 +239,9 @@ export default function DashboardMultiBoutique() {
                     <p className="text-xs text-green-700 font-medium mb-1">CA du mois</p>
                     <p className="text-lg font-bold text-green-600">{showValues ? formatCurrency(boutique.monthlySales) : "••••••••"}</p>
                   </div>
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <p className="text-xs text-blue-700 font-medium mb-1">Aujourd'hui</p>
-                    <p className="text-lg font-bold text-blue-600">{showValues ? formatCurrency(boutique.todaySales) : "••••••••"}</p>
+                  <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                    <p className="text-xs text-orange-700 font-medium mb-1">Aujourd'hui</p>
+                    <p className="text-lg font-bold text-orange-600">{showValues ? formatCurrency(boutique.todaySales) : "••••••••"}</p>
                   </div>
                   <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                     <p className="text-xs text-purple-700 font-medium mb-1">Valeur stock</p>

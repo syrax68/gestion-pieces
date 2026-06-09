@@ -243,7 +243,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
                     {showCreateOption && (
                       <button
                         type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm text-blue-600 font-medium flex items-center gap-1 border-t border-gray-100"
+                        className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm text-orange-600 font-medium flex items-center gap-1 border-t border-gray-100"
                         onMouseDown={createAndSelectMarque}
                         disabled={creatingMarque}
                       >
@@ -297,7 +297,7 @@ export default function PieceForm({ piece, open, onClose, onSave, saving }: Piec
                   {showCreateFournisseur && (
                     <button
                       type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm text-blue-600 font-medium flex items-center gap-1 border-t border-gray-100"
+                      className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm text-orange-600 font-medium flex items-center gap-1 border-t border-gray-100"
                       onMouseDown={createAndSelectFournisseur}
                       disabled={creatingFournisseur}
                     >

@@ -336,7 +336,7 @@ function InventaireDetail({
             <p className="text-sm text-muted-foreground">Progression</p>
             <p className="text-2xl font-bold">{progress}%</p>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+              <div className="bg-orange-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
             </div>
           </CardContent>
         </Card>
@@ -436,7 +436,7 @@ function InventaireItemRow({
   };
 
   const ecart = item.ecart;
-  const ecartColor = ecart === null ? "" : ecart === 0 ? "text-green-600" : ecart > 0 ? "text-blue-600" : "text-red-600";
+  const ecartColor = ecart === null ? "" : ecart === 0 ? "text-green-600" : ecart > 0 ? "text-orange-600" : "text-red-600";
 
   return (
     <tr className="border-b hover:bg-muted/50">

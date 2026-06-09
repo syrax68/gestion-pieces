@@ -431,7 +431,7 @@ export default function DevisPage() {
                           <Pencil className="h-3 w-3 mr-1" />Modifier
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleEnvoyerDevis(devis)}>
-                          <Send className="h-3 w-3 mr-1 text-blue-600" />Envoyer
+                          <Send className="h-3 w-3 mr-1 text-orange-600" />Envoyer
                         </Button>
                       </>
                     )}
@@ -512,7 +512,7 @@ export default function DevisPage() {
                                 <Pencil className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" title="Envoyer au client" onClick={(e) => { e.stopPropagation(); handleEnvoyerDevis(devis); }}>
-                                <Send className="h-4 w-4 text-blue-600" />
+                                <Send className="h-4 w-4 text-orange-600" />
                               </Button>
                             </>
                           )}

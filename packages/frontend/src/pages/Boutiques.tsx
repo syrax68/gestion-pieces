@@ -257,7 +257,7 @@ export default function Boutiques() {
                 {/* Compteurs */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-1.5 text-sm">
-                    <Users className="h-3.5 w-3.5 text-blue-500" />
+                    <Users className="h-3.5 w-3.5 text-orange-500" />
                     <span>{boutique._count?.users ?? boutiqueUsers.length} utilisateurs</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-sm">

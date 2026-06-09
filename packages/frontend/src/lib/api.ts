@@ -441,6 +441,8 @@ export interface DashboardStats {
   lowStockCount: number;
   outOfStockCount: number;
   stockValue: number;
+  margePct: number | null;
+  margePiecesCount: number;
   recentMouvements: number;
   todaySales: number;
   monthlySales: number;

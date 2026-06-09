@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,6 +9,18 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-ink-900 text-slate-100 antialiased;
+  }
+  ::selection {
+    @apply bg-accent text-ink-900;
+  }
+}
+
+@layer components {
+  /* Skeleton de chargement (remplace les spinners) */
+  .skeleton {
+    @apply rounded-lg animate-shimmer;
+    background: linear-gradient(90deg, #1a2430 25%, #243140 50%, #1a2430 75%);
+    background-size: 200% 100%;
   }
 }

@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   CheckCircle,
   Package,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   Layers,
@@ -39,8 +38,17 @@ export default function PieceDetail() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-32">
-        <Loader2 className="h-8 w-8 text-brand-600 animate-spin" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="aspect-square skeleton rounded-2xl" />
+          <div className="space-y-4">
+            <div className="h-4 w-1/3 skeleton" />
+            <div className="h-7 w-3/4 skeleton" />
+            <div className="h-8 w-1/2 skeleton" />
+            <div className="h-10 w-full skeleton mt-6" />
+            <div className="h-12 w-full skeleton" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -48,8 +56,8 @@ export default function PieceDetail() {
   if (error || !piece) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <p className="text-red-500 font-medium">{error || "Pièce introuvable"}</p>
-        <Link to="/" className="mt-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
+        <p className="text-red-400 font-medium">{error || "Pièce introuvable"}</p>
+        <Link to="/" className="mt-4 inline-flex items-center gap-1 text-sm text-accent hover:underline">
           <ArrowLeft className="h-4 w-4" /> Retour au catalogue
         </Link>
       </div>
@@ -77,7 +85,7 @@ export default function PieceDetail() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Fil d'Ariane */}
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-mute hover:text-slate-100 mb-6">
         <ArrowLeft className="h-4 w-4" />
         Retour au catalogue
       </Link>
@@ -86,7 +94,7 @@ export default function PieceDetail() {
         {/* Galerie images */}
         <div>
           {/* Image principale */}
-          <div className="aspect-square bg-gray-100 rounded-2xl overflow-hidden relative">
+          <div className="aspect-square bg-ink-700 rounded-2xl overflow-hidden relative border border-line">
             {currentImage ? (
               <img
                 src={currentImage.url}
@@ -95,7 +103,7 @@ export default function PieceDetail() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-24 w-24 text-gray-300" />
+                <Package className="h-24 w-24 text-ink-500" />
               </div>
             )}
 
@@ -103,15 +111,15 @@ export default function PieceDetail() {
               <>
                 <button
                   onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow transition"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-ink-900/70 hover:bg-ink-900 rounded-full p-1.5 shadow transition"
                 >
-                  <ChevronLeft className="h-5 w-5 text-gray-700" />
+                  <ChevronLeft className="h-5 w-5 text-slate-100" />
                 </button>
                 <button
                   onClick={() => setImageIndex((i) => (i + 1) % images.length)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-ink-900/70 hover:bg-ink-900 rounded-full p-1.5 shadow transition"
                 >
-                  <ChevronRight className="h-5 w-5 text-gray-700" />
+                  <ChevronRight className="h-5 w-5 text-slate-100" />
                 </button>
               </>
             )}
@@ -125,7 +133,7 @@ export default function PieceDetail() {
                   key={img.id}
                   onClick={() => setImageIndex(i)}
                   className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                    i === imageIndex ? "border-brand-500" : "border-gray-200 hover:border-gray-300"
+                    i === imageIndex ? "border-accent" : "border-line hover:border-ink-500"
                   }`}
                 >
                   <img src={img.url} alt={img.alt || ""} className="w-full h-full object-cover" />
@@ -140,38 +148,38 @@ export default function PieceDetail() {
           {/* Marque + catégorie */}
           <div className="flex items-center gap-2 mb-2">
             {piece.marque && (
-              <span className="text-xs font-semibold text-brand-600 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-accent uppercase tracking-wide">
                 {piece.marque.nom}
               </span>
             )}
             {piece.categorie && (
-              <span className="text-xs text-gray-400">· {piece.categorie.nom}</span>
+              <span className="text-xs text-mute">· {piece.categorie.nom}</span>
             )}
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">{piece.nom}</h1>
-          <p className="text-sm text-gray-400 mb-4">Réf. {piece.reference}</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-100 mb-1">{piece.nom}</h1>
+          <p className="text-sm text-mute mb-4">Réf. {piece.reference}</p>
 
           {/* Prix */}
           <div className="flex items-baseline gap-3 mb-4">
-            <span className="text-3xl font-bold text-gray-900">{formatCurrency(prixAffiche)}</span>
+            <span className="font-display text-3xl font-black text-accent">{formatCurrency(prixAffiche)}</span>
             {piece.enPromotion && piece.prixPromo && (
-              <span className="text-lg text-gray-400 line-through">{formatCurrency(piece.prixVente)}</span>
+              <span className="text-lg text-mute line-through">{formatCurrency(piece.prixVente)}</span>
             )}
           </div>
 
           {/* Stock */}
           <div className="mb-6">
             {rupture ? (
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 bg-red-50 px-3 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full" style={{ background: "#3A1515", color: "#F87171" }}>
                 Rupture de stock
               </span>
             ) : stockFaible ? (
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full" style={{ background: "#3A2A12", color: "#FBBF24" }}>
                 Stock limité — {piece.stock} disponible{piece.stock > 1 ? "s" : ""}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full" style={{ background: "#15321F", color: "#4ADE80" }}>
                 En stock ({piece.stock} disponible{piece.stock > 1 ? "s" : ""})
               </span>
             )}
@@ -179,19 +187,19 @@ export default function PieceDetail() {
 
           {/* Description */}
           {piece.description && (
-            <p className="text-sm text-gray-600 leading-relaxed mb-6">{piece.description}</p>
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">{piece.description}</p>
           )}
 
           {/* Bouton ajouter */}
           <button
             onClick={handleAjouter}
             disabled={rupture}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-base font-semibold transition-colors mb-3 ${
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-base font-display font-bold transition-colors mb-3 ${
               rupture
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                ? "bg-ink-700 text-mute cursor-not-allowed"
                 : inCart
-                  ? "bg-green-100 text-green-700 cursor-default"
-                  : "bg-brand-600 hover:bg-brand-700 text-white"
+                  ? "bg-ink-700 text-emerald-400 cursor-default border border-line"
+                  : "bg-accent hover:bg-accent-600 text-ink-900"
             }`}
           >
             {inCart ? (
@@ -210,30 +218,30 @@ export default function PieceDetail() {
           {inCart && (
             <Link
               to="/panier"
-              className="block w-full text-center py-3 rounded-xl border border-brand-600 text-brand-600 hover:bg-brand-50 text-base font-semibold transition-colors"
+              className="block w-full text-center py-3 rounded-xl border border-accent text-accent hover:bg-accent-soft text-base font-display font-bold transition-colors"
             >
               Voir le panier
             </Link>
           )}
 
           {/* Caractéristiques */}
-          <div className="mt-8 border-t border-gray-100 pt-6 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Caractéristiques</h2>
+          <div className="mt-8 border-t border-line pt-6 space-y-3">
+            <h2 className="font-display font-bold uppercase tracking-widest text-mute text-xs mb-3">Caractéristiques</h2>
             {piece.poids && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Weight className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Weight className="h-4 w-4 text-mute" />
                 <span>Poids : {piece.poids} kg</span>
               </div>
             )}
             {piece.dimensions && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Ruler className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Ruler className="h-4 w-4 text-mute" />
                 <span>Dimensions : {piece.dimensions}</span>
               </div>
             )}
             {piece.sousCategorie && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Layers className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Layers className="h-4 w-4 text-mute" />
                 <span>Sous-catégorie : {piece.sousCategorie.nom}</span>
               </div>
             )}

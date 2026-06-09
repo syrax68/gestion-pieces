@@ -93,7 +93,7 @@ export default function Activity() {
   const getEntityIcon = (entity: string) => {
     switch (entity) {
       case "PIECE":
-        return <Package className="h-4 w-4 text-blue-500" />;
+        return <Package className="h-4 w-4 text-orange-500" />;
       case "FACTURE":
         return <FileText className="h-4 w-4 text-green-500" />;
       case "ACHAT":

@@ -10,6 +10,7 @@ import { Label } from "./ui/Label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/Dialog";
 import {
   Package,
+  Bolt,
   Home,
   Warehouse,
   ShoppingCart,
@@ -186,16 +187,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-white dark:bg-slate-900">
+      <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur dark:bg-slate-900">
         <div className="container mx-auto px-4">
           {/* Ligne titre + actions */}
           <div className="flex items-center justify-between py-3">
-            <Link to={isSuperAdmin ? "/multi-boutiques" : "/"} className="flex items-center space-x-2">
-              <Package className="h-6 w-6" />
-              <span className="text-xl font-bold hidden sm:inline">
+            <Link to={isSuperAdmin ? "/multi-boutiques" : "/"} className="flex items-center gap-2">
+              <span className="h-8 w-8 rounded-lg bg-primary text-primary-foreground grid place-items-center shrink-0">
+                <Bolt className="h-5 w-5" />
+              </span>
+              <span className="font-display text-xl font-extrabold uppercase tracking-tight hidden sm:inline">
                 {isSuperAdmin ? "Gestion Multi-Boutiques" : boutique?.nom || "Gestion Pièces Moto"}
               </span>
-              <span className="text-xl font-bold sm:hidden">{isSuperAdmin ? "GMB" : "GPM"}</span>
+              <span className="font-display text-xl font-extrabold uppercase sm:hidden">{isSuperAdmin ? "GMB" : "GPM"}</span>
             </Link>
 
             <div className="flex items-center space-x-2">

@@ -33,13 +33,20 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-// WebSocket (port 443) — seule connexion autorisée par Hostinger
-neonConfig.webSocketConstructor = ws;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(pool);
-
 const app = express();
-export const prisma = new PrismaClient({ adapter });
+
+// En production (Neon serverless), connexion via WebSocket.
+// En local (Docker PostgreSQL), connexion TCP standard.
+let prisma: PrismaClient;
+if (process.env.NODE_ENV === "production") {
+  neonConfig.webSocketConstructor = ws;
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaNeon(pool);
+  prisma = new PrismaClient({ adapter });
+} else {
+  prisma = new PrismaClient();
+}
+export { prisma };
 
 // Middleware
 app.use(

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "./contexts/CartContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import WhatsAppFab from "./components/WhatsAppFab";
 import Catalogue from "./pages/Catalogue";
 import PieceDetail from "./pages/PieceDetail";
 import Cart from "./pages/Cart";
@@ -26,6 +27,7 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <WhatsAppFab />
         </div>
       </CartProvider>
     </BrowserRouter>
