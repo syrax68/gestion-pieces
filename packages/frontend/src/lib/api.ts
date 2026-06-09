@@ -737,6 +737,11 @@ export const inventairesApi = {
   delete: (id: string) => api.delete(`/inventaires/${id}`),
 };
 
+export interface VentesPage {
+  data: VenteJournaliere[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 export const ventesJournalieresApi = {
   getAll: (params?: { from?: string; to?: string; limit?: number }) => {
     const q = new URLSearchParams();
@@ -745,6 +750,23 @@ export const ventesJournalieresApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     const query = q.toString() ? `?${q}` : "";
     return api.get<VenteJournaliere[]>(`/ventes-journalieres${query}`);
+  },
+  getPaged: (params: {
+    page: number;
+    limit: number;
+    sortBy: "date" | "montant";
+    sortDir: "asc" | "desc";
+    from?: string;
+    to?: string;
+  }) => {
+    const q = new URLSearchParams();
+    q.set("page", String(params.page));
+    q.set("limit", String(params.limit));
+    q.set("sortBy", params.sortBy);
+    q.set("sortDir", params.sortDir);
+    if (params.from) q.set("from", params.from);
+    if (params.to) q.set("to", params.to);
+    return api.get<VentesPage>(`/ventes-journalieres?${q}`);
   },
   create: (data: { montant: number; date?: string; notes?: string }) => api.post<VenteJournaliere>("/ventes-journalieres", data),
   update: (id: string, data: { montant: number; date?: string; notes?: string }) =>

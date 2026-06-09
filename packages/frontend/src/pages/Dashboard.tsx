@@ -27,6 +27,11 @@ import {
   Trash2,
   Archive,
   Percent,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   ComposedChart,
@@ -55,6 +60,13 @@ const MOIS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Se
 const formatMonth = (mois: string) => MOIS_FR[dayjs(mois).month()];
 const formatDate  = (d: string) => dayjs(d).format("DD MMM YYYY");
 
+const VENTES_PAGE_SIZE = 8;
+
+function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) return <ChevronsUpDown className="h-3 w-3 opacity-50" />;
+  return dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export default function Dashboard() {
   const { canEdit } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -63,6 +75,11 @@ export default function Dashboard() {
     ventes: number; achats: number; stockRecu: number; stockParDate: Record<string, number>;
   } | null>(null);
   const [ventesRecentes, setVentesRecentes] = useState<VenteJournaliere[]>([]);
+  const [ventePage, setVentePage] = useState(1);
+  const [venteSort, setVenteSort] = useState<{ key: "date" | "montant"; dir: "asc" | "desc" }>({ key: "date", dir: "desc" });
+  const [ventesTotal, setVentesTotal] = useState(0);
+  const [ventesTotalPages, setVentesTotalPages] = useState(1);
+  const [ventesLoading, setVentesLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showStockValue, setShowStockValue] = useState(false);
   const [dateDebut, setDateDebut] = useState(firstOfMonth);
@@ -79,16 +96,44 @@ export default function Dashboard() {
     setKpi(data);
   };
 
+  // Ventes saisies : tri + pagination côté serveur
+  const loadVentes = async (page: number, sort: { key: "date" | "montant"; dir: "asc" | "desc" }) => {
+    setVentesLoading(true);
+    try {
+      const res = await ventesJournalieresApi.getPaged({
+        page,
+        limit: VENTES_PAGE_SIZE,
+        sortBy: sort.key,
+        sortDir: sort.dir,
+      });
+      // Si la page est devenue vide après suppression, on recule d'une page.
+      if (res.data.length === 0 && page > 1) {
+        setVentePage(page - 1);
+        return;
+      }
+      setVentesRecentes(res.data);
+      setVentesTotal(res.pagination.total);
+      setVentesTotalPages(res.pagination.totalPages);
+    } catch {
+      setVentesRecentes([]);
+    } finally {
+      setVentesLoading(false);
+    }
+  };
+
+  const toggleVenteSort = (key: "date" | "montant") => {
+    setVentePage(1);
+    setVenteSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }));
+  };
+
   const loadData = async () => {
     try {
-      const [statsData, sales, ventes] = await Promise.all([
+      const [statsData, sales] = await Promise.all([
         dashboardApi.getStats(),
         dashboardApi.getSalesChart().catch(() => []),
-        ventesJournalieresApi.getAll({ limit: 7 }).catch(() => []),
       ]);
       setStats(statsData);
       setSalesChart(sales);
-      setVentesRecentes(ventes);
       await loadKpi(dateDebut, dateFin);
     } catch (error) {
       console.error("Error loading dashboard:", error);
@@ -99,6 +144,8 @@ export default function Dashboard() {
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => { if (!isLoading) loadKpi(dateDebut, dateFin); }, [dateDebut, dateFin]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadVentes(ventePage, venteSort); }, [ventePage, venteSort]);
 
   const openCreate = () => {
     setEditingVente(null);
@@ -114,6 +161,7 @@ export default function Dashboard() {
     if (!confirm("Supprimer cette vente ?")) return;
     await ventesJournalieresApi.delete(id);
     loadData();
+    loadVentes(ventePage, venteSort);
   };
   const handleSave = async () => {
     const montant = parseFloat(form.montant);
@@ -127,6 +175,13 @@ export default function Dashboard() {
       }
       setDialogOpen(false);
       loadData();
+      if (editingVente) {
+        loadVentes(ventePage, venteSort);
+      } else {
+        // Nouvelle vente : on revient en page 1 pour la voir.
+        setVentePage(1);
+        loadVentes(1, venteSort);
+      }
     } finally {
       setSaving(false);
     }
@@ -313,32 +368,81 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Ventes journalières récentes */}
-          {ventesRecentes.length > 0 && (
+          {/* Ventes journalières récentes — tableau triable + pagination serveur */}
+          {(ventesTotal > 0 || ventesRecentes.length > 0) && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Dernières ventes saisies</p>
-              <div className="divide-y rounded-md border overflow-hidden">
-                {ventesRecentes.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between px-3 py-2 bg-background hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-green-700">{formatCurrency(v.montant)}</span>
-                      {v.notes && <span className="text-xs text-muted-foreground hidden sm:inline">{v.notes}</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-muted-foreground">{formatDate(v.date)}</span>
-                      {canEdit && (
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-orange-600">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => handleDelete(v.id)} className="text-muted-foreground hover:text-red-600">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-muted-foreground">
+                      <th className="text-left font-medium px-3 py-2">
+                        <button onClick={() => toggleVenteSort("montant")} className="inline-flex items-center gap-1 hover:text-foreground">
+                          Montant <SortIcon active={venteSort.key === "montant"} dir={venteSort.dir} />
+                        </button>
+                      </th>
+                      <th className="text-left font-medium px-3 py-2 hidden sm:table-cell">Notes</th>
+                      <th className="text-right font-medium px-3 py-2">
+                        <button onClick={() => toggleVenteSort("date")} className="inline-flex items-center gap-1 hover:text-foreground">
+                          Date <SortIcon active={venteSort.key === "date"} dir={venteSort.dir} />
+                        </button>
+                      </th>
+                      {canEdit && <th className="w-16 px-3 py-2" aria-label="actions" />}
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y transition-opacity ${ventesLoading ? "opacity-50" : ""}`}>
+                    {ventesRecentes.map((v) => (
+                      <tr key={v.id} className="bg-background hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
+                        <td className="px-3 py-2 font-medium text-green-700 whitespace-nowrap">{formatCurrency(v.montant)}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground hidden sm:table-cell">{v.notes || "—"}</td>
+                        <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">{formatDate(v.date)}</td>
+                        {canEdit && (
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => openEdit(v)} className="text-muted-foreground hover:text-orange-600">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button onClick={() => handleDelete(v.id)} className="text-muted-foreground hover:text-red-600">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                    {ventesRecentes.length === 0 && (
+                      <tr>
+                        <td colSpan={canEdit ? 4 : 3} className="px-3 py-6 text-center text-muted-foreground">
+                          Aucune vente
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                <span>{ventesTotal} vente{ventesTotal > 1 ? "s" : ""} au total</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={ventePage <= 1 || ventesLoading}
+                    onClick={() => setVentePage((p) => Math.max(1, p - 1))}
+                    className="inline-flex items-center px-2 py-1 rounded border disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    aria-label="Page précédente"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span>Page {ventePage} / {ventesTotalPages}</span>
+                  <button
+                    disabled={ventePage >= ventesTotalPages || ventesLoading}
+                    onClick={() => setVentePage((p) => Math.min(ventesTotalPages, p + 1))}
+                    className="inline-flex items-center px-2 py-1 rounded border disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    aria-label="Page suivante"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           )}

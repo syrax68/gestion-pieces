@@ -16,10 +16,13 @@ const venteSchema = z.object({
 });
 
 // Liste des ventes journalières
+// - Sans `page` : renvoie un tableau simple (rétro-compatible), trié date desc.
+// - Avec `page`  : renvoie { data, pagination } avec tri serveur (date | montant, asc | desc).
 router.get("/", async (req, res) => {
   try {
     const boutiqueId = (req as AuthRequest).boutiqueId;
-    const { from, to, limit = "30" } = req.query as Record<string, string>;
+    const { from, to, limit = "30", page, sortBy = "date", sortDir = "desc" } =
+      req.query as Record<string, string>;
 
     const where: Record<string, unknown> = { boutiqueId };
     if (from || to) {
@@ -29,9 +32,37 @@ router.get("/", async (req, res) => {
       };
     }
 
+    // Tri serveur — liste blanche stricte pour éviter toute injection de champ.
+    const sortField = sortBy === "montant" ? "montant" : "date";
+    const sortOrder = sortDir === "asc" ? "asc" : "desc";
+    const orderBy = [{ [sortField]: sortOrder }] as Record<string, "asc" | "desc">[];
+
+    // Mode paginé
+    if (page !== undefined) {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const take = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+      const skip = (pageNum - 1) * take;
+
+      const [ventes, total] = await prisma.$transaction([
+        prisma.venteJournaliere.findMany({ where, orderBy, take, skip }),
+        prisma.venteJournaliere.count({ where }),
+      ]);
+
+      return res.json({
+        data: ventes.map((v) => ({ ...v, montant: Number(v.montant) })),
+        pagination: {
+          page: pageNum,
+          limit: take,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / take)),
+        },
+      });
+    }
+
+    // Mode simple (rétro-compatible)
     const ventes = await prisma.venteJournaliere.findMany({
       where,
-      orderBy: { date: "desc" },
+      orderBy,
       take: Math.min(100, parseInt(limit, 10)),
     });
 
