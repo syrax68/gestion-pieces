@@ -26,6 +26,7 @@ const achatSchema = z
     items: z.array(achatItemSchema).optional(),
     totalCommande: z.number().positive().optional(),
     notes: z.string().optional(),
+    dateAchat: z.string().datetime().optional(),
   })
   .refine((data) => (data.items && data.items.length > 0) || data.totalCommande !== undefined, {
     message: "Au moins un article ou un montant total est requis",
@@ -99,6 +100,7 @@ router.post("/", isVendeurOrAdmin, async (req: AuthRequest, res: Response) => {
           total,
           statut: "PAYEE",
           notes: data.notes,
+          dateAchat: data.dateAchat ? new Date(data.dateAchat) : undefined,
           boutiqueId: req.boutiqueId!,
           ...(items.length > 0
             ? {
@@ -274,6 +276,7 @@ router.put("/:id", isVendeurOrAdmin, async (req: AuthRequest, res) => {
           tva: 0,
           total,
           notes: data.notes,
+          ...(data.dateAchat && { dateAchat: new Date(data.dateAchat) }),
           ...(items.length > 0
             ? {
                 items: {

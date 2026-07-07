@@ -32,6 +32,7 @@ export default function Achats() {
   const [orderTotal, setOrderTotal] = useState(0);
   const [notes, setNotes] = useState("");
   const [fournisseurId, setFournisseurId] = useState<string | undefined>();
+  const [dateAchat, setDateAchat] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +133,7 @@ export default function Achats() {
         totalCommande: isTotalOrder ? orderTotal : undefined,
         fournisseurId: fournisseurId || undefined,
         notes: notes || undefined,
+        dateAchat: dateAchat ? new Date(dateAchat).toISOString() : undefined,
       };
 
       if (editingAchatId) {
@@ -156,6 +158,7 @@ export default function Achats() {
     setOrderTotal(0);
     setNotes("");
     setFournisseurId(undefined);
+    setDateAchat(new Date().toISOString().split("T")[0]);
     setIsTotalOrder(false);
     setEditingAchatId(null);
   };
@@ -164,6 +167,7 @@ export default function Achats() {
     setEditingAchatId(achat.id);
     setFournisseurId(achat.fournisseurId);
     setNotes(achat.notes || "");
+    setDateAchat(new Date(achat.dateAchat).toISOString().split("T")[0]);
 
     if (achat.items.length > 0) {
       setIsTotalOrder(false);
@@ -343,24 +347,34 @@ export default function Achats() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Fournisseur (optionnel)</Label>
-              <Autocomplete
-                value={fournisseurId || ""}
-                onChange={(value) => setFournisseurId(value || undefined)}
-                options={fournisseurs.map((f) => ({
-                  value: f.id,
-                  label: f.nom,
-                  subtitle: f.email || "",
-                }))}
-                placeholder="Sélectionner un fournisseur..."
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Fournisseur (optionnel)</Label>
+                <Autocomplete
+                  value={fournisseurId || ""}
+                  onChange={(value) => setFournisseurId(value || undefined)}
+                  options={fournisseurs.map((f) => ({
+                    value: f.id,
+                    label: f.nom,
+                    subtitle: f.email || "",
+                  }))}
+                  placeholder="Sélectionner un fournisseur..."
+                />
+              </div>
+              <div>
+                <Label>Date d'achat</Label>
+                <Input
+                  type="date"
+                  value={dateAchat}
+                  onChange={(e) => setDateAchat(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-medium">Articles</h3>
-                <p className="text-sm text-muted-foreground">Ou enregistrez une commande 1688 avec un total global.</p>
+                <p className="text-sm text-muted-foreground">Ou enregistrez une commande total avec un montant global.</p>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <Button
@@ -372,7 +386,7 @@ export default function Achats() {
                     if (!isTotalOrder) setCart([]);
                   }}
                 >
-                  {isTotalOrder ? "Mode détail pièces" : "Commande 1688 (total global)"}
+                  {isTotalOrder ? "Mode détail pièces" : "Commande total"}
                 </Button>
                 {!isTotalOrder && (
                   <Button size="sm" variant="outline" onClick={handleAddToCart}>
@@ -398,7 +412,7 @@ export default function Achats() {
                 </div>
                 <div className="rounded-lg border border-dashed border-muted p-4 bg-muted/50">
                   <p className="text-sm text-muted-foreground">
-                    Enregistrez un achat global sans détail des pièces. Utile pour les commandes 1688 lorsque les lignes ne sont pas encore
+                    Enregistrez un achat global sans détail des pièces. Utile pour les commandes totales lorsque les lignes ne sont pas encore
                     connues.
                   </p>
                 </div>
